@@ -36,6 +36,7 @@ case "$arg1" in
 		echo "  stop docker compose in ${HBDIR}"
 		echo "  remove containers/images named hblink4 or hblink4-dash"
 		echo "  remove /usr/local/sbin/hblink4-* and /usr/local/lib/hblink4"
+		echo "  disable Apache site hblink4-dash (packages and Let's Encrypt certs stay)"
 		echo "  backup ${HBDIR} to /root/hblink4-backup-<timestamp>"
 		echo "  remove ${HBDIR} ${HBLINK4_SRC} ${HBLINK4_LOGDIR}"
 		echo "Docker packages would be left installed."
@@ -53,7 +54,7 @@ echo "  - Source clone (${HBLINK4_SRC})"
 echo "  - Logs (${HBLINK4_LOGDIR})"
 echo "  - Control scripts (/usr/local/sbin/hblink4-*)"
 echo
-echo "NOTE: Docker Engine packages will NOT be removed."
+echo "NOTE: Docker Engine, Apache, certbot, and Let's Encrypt certificates are NOT removed."
 echo
 if ! confirm_yes "Are you sure you want to continue? (yes/no): "; then
 	echo "Uninstall cancelled."
@@ -85,8 +86,20 @@ rm -f /usr/local/sbin/hblink4-menu \
 	/usr/local/sbin/hblink4-initial-setup \
 	/usr/local/sbin/hblink4-uninstall \
 	/usr/local/sbin/hblink4-logs \
-	/usr/local/sbin/hblink4-diagnostics
+	/usr/local/sbin/hblink4-diagnostics \
+	/usr/local/sbin/hblink4-ssl
 rm -rf /usr/local/lib/hblink4
+
+if command -v a2dissite >/dev/null 2>&1; then
+	note "Disabling Apache dashboard site (Apache/certbot packages left installed)..."
+	a2dissite hblink4-dash >/dev/null 2>&1 || true
+	a2dissite hblink4-dash-le-ssl >/dev/null 2>&1 || true
+	rm -f /etc/apache2/sites-available/hblink4-dash.conf \
+		/etc/apache2/sites-available/hblink4-dash-le-ssl.conf
+	if systemctl is-active --quiet apache2 2>/dev/null; then
+		apache2ctl configtest >/dev/null 2>&1 && systemctl reload apache2 || true
+	fi
+fi
 
 backup_dir="/root/hblink4-backup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$backup_dir"
@@ -103,6 +116,6 @@ echo
 echo "${C_CYAN}*************************************************************************${C_RESET}"
 echo "              HBlink4 uninstallation complete. Aka ShaYmez."
 echo "  Configuration backup: ${backup_dir}"
-echo "  Docker packages were left installed."
+echo "  Docker, Apache, certbot, and Let's Encrypt certificates were left installed."
 echo "${C_CYAN}*************************************************************************${C_RESET}"
 exit 0

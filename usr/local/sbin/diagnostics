@@ -27,9 +27,27 @@ if [ -f "${HBDIR}/docker-compose.yml" ]; then
 	( cd "$HBDIR" && docker compose ps )
 fi
 echo
-note "Listening sockets (62031 / 8080 / 8765)"
+note "Listening sockets (62031 / 8080 / 8765 / 443)"
 ss -ulnp 2>/dev/null | grep -E '62031|62032' || true
-ss -tlnp 2>/dev/null | grep -E '8080|8765' || true
+ss -tlnp 2>/dev/null | grep -E '8080|8765|443|:80 ' || true
+echo
+if [ -f "${HBDIR}/.ssl_fqdn" ]; then
+	note "HTTPS (hblink4-ssl)"
+	echo "  FQDN: $(cat "${HBDIR}/.ssl_fqdn")"
+	echo "  https://$(cat "${HBDIR}/.ssl_fqdn")/"
+fi
+if [ -f "${HBDIR}/dashboard/config.json" ]; then
+	note "Dashboard web.bind"
+	python3 - "${HBDIR}/dashboard/config.json" << 'PY' 2>/dev/null || true
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    w = d.get("web") or {}
+    print(f"  bind {w.get('bind','?')}:{w.get('port','?')}")
+except Exception:
+    pass
+PY
+fi
 echo
 note "Installer / HBlink4 git revisions"
 echo "  installer : $(installer_path)"

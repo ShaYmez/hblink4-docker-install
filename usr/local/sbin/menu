@@ -68,6 +68,7 @@ config_menu() {
 			"2|Edit dashboard config.json" \
 			"3|Edit docker-compose.yml" \
 			"4|Re-fetch missing samples only" \
+			"5|Enable HTTPS (Let's Encrypt)" \
 			"0|Back"
 		case "$(read_choice)" in
 			1) edit_file "${HBDIR}/config/config.json" ;;
@@ -77,6 +78,20 @@ config_menu() {
 				# Only download if missing — ensure_config never overwrites
 				ensure_config
 				pause
+				;;
+			5)
+				echo
+				printf "  Fully qualified domain name: "
+				read -r fqdn
+				printf "  Let's Encrypt email: "
+				read -r email
+				if [ -z "$fqdn" ] || [ -z "$email" ]; then
+					warn "FQDN and email are required"
+					pause
+				else
+					sudo /usr/local/sbin/hblink4-ssl "$fqdn" "$email"
+					pause
+				fi
 				;;
 			0|b|q|"") return ;;
 		esac

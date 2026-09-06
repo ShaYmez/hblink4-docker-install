@@ -1,0 +1,281 @@
+#!/bin/bash
+# HBlink4 Docker control — Let's Encrypt HTTPS for the dashboard
+# Version 0.2.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+
+# Obtain a Let's Encrypt cert, put Apache on 443 in front of uvicorn (8080),
+# and bind the dashboard to localhost so HTTP is no longer public.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	# shellcheck source=/usr/local/lib/hblink4/common.sh
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+	if [ ! -f "${_ROOT}/lib/common.sh" ]; then
+		_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	fi
+	# shellcheck source=../../lib/common.sh
+	. "${_ROOT}/lib/common.sh"
+fi
+
+usage() {
+	cat << 'EOF'
+Usage: hblink4-ssl [--dry-run] <fqdn> <email>
+
+Obtain a Let's Encrypt certificate and terminate HTTPS on port 443 in
+front of the HBlink4 dashboard (uvicorn stays on 127.0.0.1:8080).
+HTTP on port 80 redirects to HTTPS. Same-origin WebSocket /ws is proxied.
+
+  --dry-run   Print what would change. No apt, certbot, Apache, or docker
+              mutations.
+
+Example:
+  hblink4-ssl hblink.freestar.network shane@freestar.network
+  hblink4-ssl --dry-run hblink.example.test ops@example.test
+
+Port 80 must already reach this host (HTTP-01). DNS for the FQDN must
+point here first.
+EOF
+}
+
+DRY_RUN=0
+FQDN=""
+EMAIL=""
+for raw in "$@"; do
+	arg=$(printf '%s' "$raw" | tr -d '\r')
+	case "$arg" in
+		-h|--help) usage; exit 0 ;;
+		--dry-run) DRY_RUN=1 ;;
+		*)
+			if [ -z "$FQDN" ]; then
+				FQDN="$arg"
+			elif [ -z "$EMAIL" ]; then
+				EMAIL="$arg"
+			else
+				echo "Unknown extra argument: $arg"
+				usage
+				exit 1
+			fi
+			;;
+	esac
+done
+
+if [ -z "$FQDN" ] || [ -z "$EMAIL" ]; then
+	usage
+	exit 1
+fi
+
+FQDN=$(printf '%s' "$FQDN" | tr '[:upper:]' '[:lower:]')
+
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+INSTALLER_PATH="$(installer_path)"
+SITE_NAME=hblink4-dash
+SITE_DST="/etc/apache2/sites-available/${SITE_NAME}.conf"
+DASH_CFG="${HBDIR}/dashboard/config.json"
+
+find_vhost_src() {
+	local cand
+	for cand in \
+		"${HBDIR}/apache/hblink4-dash.conf" \
+		"${INSTALLER_PATH}/files/apache-hblink4-dash.conf" \
+		"${SCRIPT_DIR}/../../../files/apache-hblink4-dash.conf" \
+		"${SCRIPT_DIR}/../../files/apache-hblink4-dash.conf"
+	do
+		if [ -f "$cand" ]; then
+			printf '%s' "$cand"
+			return 0
+		fi
+	done
+	return 1
+}
+
+render_vhost() {
+	sed "s/__FQDN__/${FQDN}/g" "$1"
+}
+
+find_python() {
+	local cand exe
+	for cand in python3 python; do
+		command -v "$cand" >/dev/null 2>&1 || continue
+		exe=$("$cand" -c 'import sys; print(sys.executable)' 2>/dev/null) || continue
+		case "$exe" in
+			*WindowsApps*) continue ;;
+		esac
+		if "$cand" -c 'import json, pathlib' >/dev/null 2>&1; then
+			printf '%s' "$cand"
+			return 0
+		fi
+	done
+	return 1
+}
+
+preview_dash_bind() {
+	if [ ! -f "$DASH_CFG" ]; then
+		echo "dashboard config not installed yet — would set web.bind to 127.0.0.1 after install"
+		return
+	fi
+	PYTHON=$(find_python) || {
+		echo "would set ${DASH_CFG} web.bind to 127.0.0.1 (python3 not found for preview)"
+		return
+	}
+	"$PYTHON" - "$DASH_CFG" << 'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+try:
+    data = json.loads(p.read_text())
+except Exception as e:
+    print("could not parse dashboard config:", e)
+    raise SystemExit(0)
+web = data.get("web") or {}
+bind = web.get("bind", "0.0.0.0")
+port = web.get("port", 8080)
+if bind in ("127.0.0.1", "localhost"):
+    print(f"dashboard already bound to {bind}:{port}")
+else:
+    print(f"dashboard web.bind {bind}:{port} -> 127.0.0.1:{port}")
+PY
+}
+
+bind_dash_localhost() {
+	if [ ! -f "$DASH_CFG" ]; then
+		err "Dashboard config not found: ${DASH_CFG}"
+		return 1
+	fi
+	PYTHON=$(find_python) || {
+		err "python3 is required to set dashboard bind to 127.0.0.1"
+		return 1
+	}
+	"$PYTHON" - "$DASH_CFG" << 'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+data = json.loads(p.read_text())
+web = data.setdefault("web", {})
+port = int(web.get("port") or 8080)
+bind = web.get("bind", "0.0.0.0")
+web["port"] = port
+if bind in ("127.0.0.1", "localhost"):
+    print(f"dashboard already listening on {bind}:{port}")
+else:
+    web["bind"] = "127.0.0.1"
+    p.write_text(json.dumps(data, indent=4) + "\n")
+    print(f"dashboard web.bind {bind}:{port} -> 127.0.0.1:{port}")
+PY
+}
+
+VHOST_SRC=$(find_vhost_src) || VHOST_SRC=""
+
+if [ "$DRY_RUN" -eq 1 ]; then
+	echo "DRY RUN — no apt, certbot, Apache, or docker changes"
+	echo "FQDN:  ${FQDN}"
+	echo "Email: ${EMAIL}"
+	if [ -z "$VHOST_SRC" ]; then
+		echo "ERROR: apache-hblink4-dash.conf not found"
+		exit 1
+	fi
+	echo "vhost source: ${VHOST_SRC}"
+	echo "---- rendered ${SITE_DST} ----"
+	render_vhost "$VHOST_SRC"
+	if render_vhost "$VHOST_SRC" | grep -q '__FQDN__'; then
+		echo "ERROR: leftover __FQDN__ placeholder"
+		exit 1
+	fi
+	preview_dash_bind
+	echo "Would: apt-get install apache2 certbot python3-certbot-apache"
+	echo "Would: a2enmod ssl rewrite headers proxy proxy_http proxy_wstunnel"
+	echo "Would: certbot --apache -d ${FQDN} --agree-tos -m ${EMAIL} --redirect"
+	echo "Would: bind dashboard to 127.0.0.1:8080 and docker compose up -d hblink4-dash"
+	echo "Would: HTTPS dashboard at https://${FQDN}/"
+	exit 0
+fi
+
+require_root
+
+if [ -z "$VHOST_SRC" ]; then
+	err "apache-hblink4-dash.conf not found (installer files missing?)"
+	exit 1
+fi
+
+if ! printf '%s' "$FQDN" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'; then
+	err "FQDN looks invalid: ${FQDN}"
+	exit 1
+fi
+
+export DEBIAN_FRONTEND=noninteractive
+note "Installing Apache + certbot (on demand)..."
+apt-get update -y
+apt-get install -y apache2 certbot python3-certbot-apache
+
+a2enmod ssl rewrite headers proxy proxy_http proxy_wstunnel
+a2dissite 000-default >/dev/null 2>&1 || true
+
+# HTTP-only bootstrap so certbot --apache has a ServerName vhost for HTTP-01.
+mkdir -p /var/www/html
+cat > "$SITE_DST" << EOF
+# Temporary HTTP vhost for Let's Encrypt; replaced after the cert is issued.
+<VirtualHost *:80>
+	ServerName ${FQDN}
+	DocumentRoot /var/www/html
+	<Directory /var/www/html>
+		Options -Indexes
+		AllowOverride None
+		Require all granted
+	</Directory>
+</VirtualHost>
+EOF
+a2ensite "$SITE_NAME"
+apache2ctl configtest
+systemctl enable apache2
+systemctl reload apache2 || systemctl restart apache2
+
+if [ ! -d "/etc/letsencrypt/live/${FQDN}" ]; then
+	note "Requesting Let's Encrypt certificate for ${FQDN}..."
+	certbot --apache -d "$FQDN" --non-interactive --agree-tos -m "$EMAIL" --redirect
+else
+	note "Existing certificate found for ${FQDN}"
+	certbot install --apache -d "$FQDN" --non-interactive --reinstall --redirect || true
+fi
+
+if [ ! -d "/etc/letsencrypt/live/${FQDN}" ]; then
+	err "Certificate was not issued for ${FQDN}"
+	err "Check DNS A/AAAA for this host and that TCP 80 is reachable from the internet."
+	exit 1
+fi
+
+note "Installing HTTPS reverse proxy (443 -> 127.0.0.1:8080, including /ws)..."
+render_vhost "$VHOST_SRC" > "$SITE_DST"
+if [ ! -f /etc/letsencrypt/options-ssl-apache.conf ]; then
+	sed -i '/options-ssl-apache.conf/d' "$SITE_DST"
+fi
+if grep -q '__FQDN__' "$SITE_DST"; then
+	err "leftover __FQDN__ in ${SITE_DST}"
+	exit 1
+fi
+# certbot may have added a sibling -le-ssl site; ours already has *:443.
+a2dissite "${SITE_NAME}-le-ssl" >/dev/null 2>&1 || true
+rm -f "/etc/apache2/sites-available/${SITE_NAME}-le-ssl.conf"
+a2ensite "$SITE_NAME"
+apache2ctl configtest
+systemctl reload apache2
+
+note "Binding dashboard to localhost so :8080 is no longer public..."
+bind_dash_localhost || exit 1
+if [ -f "${HBDIR}/docker-compose.yml" ]; then
+	( cd "$HBDIR" && docker compose up -d hblink4-dash )
+	( cd "$HBDIR" && docker compose restart hblink4-dash )
+fi
+
+printf '%s\n' "$FQDN" > "${HBDIR}/.ssl_fqdn"
+chmod 644 "${HBDIR}/.ssl_fqdn" 2>/dev/null || true
+
+echo
+ok "HTTPS dashboard: https://${FQDN}/"
+echo "  HTTP on port 80 redirects to HTTPS."
+echo "  Uvicorn is localhost:8080 behind Apache. WebSocket is wss://${FQDN}/ws"
+print_footer
+exit 0

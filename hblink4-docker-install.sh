@@ -253,6 +253,7 @@ echo
 echo "     Use 'hblink4-logs' or 'docker compose logs -f --tail=50'"
 echo "         File logs: ${HBLINK4_LOGDIR}/hblink.log"
 echo "         Dashboard: http://${LOCAL_IP:-<host>}:8080"
+echo "         HTTPS:     hblink4-ssl <fqdn> <email>  (optional, port 443)"
 echo "         Repeaters: UDP 62031  (passphrase in config.json)"
 echo
 echo "                    Type 'hblink4-menu' for main menu"

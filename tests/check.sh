@@ -13,7 +13,7 @@ PASS=0
 ok() { echo "OK    $1"; PASS=$((PASS + 1)); }
 bad() { echo "FAIL  $1"; FAIL=$((FAIL + 1)); }
 
-SBIN_SCRIPTS="menu initial-setup start stop restart flush logs update upgrade uninstall diagnostics"
+SBIN_SCRIPTS="menu initial-setup start stop restart flush logs update upgrade uninstall diagnostics ssl"
 
 echo "=== hblink4-docker-install checks ==="
 echo "ROOT=$ROOT"
@@ -29,6 +29,7 @@ for f in \
 	lib/common.sh \
 	files/docker-daemon.json \
 	files/hblink4-logrotate \
+	files/apache-hblink4-dash.conf \
 	docker/hblink4/Dockerfile \
 	docker/dashboard/Dockerfile \
 	docker/.dockerignore
@@ -54,10 +55,22 @@ else
 	bad "installer does not call install_control_scripts"
 fi
 
+if grep -q 'hblink4-ssl' usr/local/sbin/uninstall; then
+	ok "uninstall removes hblink4-ssl"
+else
+	bad "uninstall does not remove hblink4-ssl"
+fi
+
 if grep -q 'hblink4-logs' usr/local/sbin/uninstall; then
 	ok "uninstall removes hblink4-logs"
 else
 	bad "uninstall does not remove hblink4-logs"
+fi
+
+if grep -q 'diagnostics ssl' lib/common.sh; then
+	ok "install_control_scripts includes ssl"
+else
+	bad "install_control_scripts missing ssl"
 fi
 
 # --- no CRLF (Linux / GitHub Actions). Windows checkouts may be CRLF. ---
@@ -179,6 +192,33 @@ if printf '%s' "$UN_OUT" | grep -q 'Usage:'; then
 	ok "uninstall --help"
 else
 	bad "uninstall --help"
+fi
+
+if grep -q '__FQDN__' files/apache-hblink4-dash.conf \
+	&& grep -q 'ProxyPass /ws ws://127.0.0.1:8080/ws' files/apache-hblink4-dash.conf \
+	&& grep -q 'VirtualHost \*:443' files/apache-hblink4-dash.conf; then
+	ok "apache vhost templates FQDN, /ws, and 443"
+else
+	bad "apache vhost template missing FQDN, /ws, or 443"
+fi
+
+SSL_OUT=$(bash usr/local/sbin/ssl --help 2>&1) || true
+if printf '%s' "$SSL_OUT" | grep -q 'Usage:'; then
+	ok "ssl --help"
+else
+	echo "$SSL_OUT"
+	bad "ssl --help"
+fi
+
+SSL_OUT=$(bash usr/local/sbin/ssl --dry-run ci.example.test ci@example.test 2>&1) || true
+if printf '%s' "$SSL_OUT" | grep -q 'DRY RUN' \
+	&& printf '%s' "$SSL_OUT" | grep -q 'ci.example.test' \
+	&& printf '%s' "$SSL_OUT" | grep -q 'ProxyPass /ws' \
+	&& ! printf '%s' "$SSL_OUT" | grep -q '__FQDN__'; then
+	ok "ssl --dry-run"
+else
+	echo "$SSL_OUT"
+	bad "ssl --dry-run"
 fi
 
 echo ""

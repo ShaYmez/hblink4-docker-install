@@ -274,11 +274,15 @@ ensure_config() {
 
 install_compose_tree() {
 	local src="$1"
-	mkdir -p "${HBDIR}/docker/hblink4" "${HBDIR}/docker/dashboard" "${HBDIR}/lib"
+	mkdir -p "${HBDIR}/docker/hblink4" "${HBDIR}/docker/dashboard" "${HBDIR}/lib" "${HBDIR}/apache"
 	sed -i 's/\r$//' "${src}/docker-compose.yml" 2>/dev/null || true
 	cp -f "${src}/docker-compose.yml" "${HBDIR}/docker-compose.yml"
 	cp -f "${src}/docker/hblink4/Dockerfile" "${HBDIR}/docker/hblink4/Dockerfile"
 	cp -f "${src}/docker/dashboard/Dockerfile" "${HBDIR}/docker/dashboard/Dockerfile"
+	if [ -f "${src}/files/apache-hblink4-dash.conf" ]; then
+		cp -f "${src}/files/apache-hblink4-dash.conf" "${HBDIR}/apache/hblink4-dash.conf"
+		chmod 644 "${HBDIR}/apache/hblink4-dash.conf"
+	fi
 	if [ -f "${src}/docker/.dockerignore" ]; then
 		cp -f "${src}/docker/.dockerignore" "${HBLINK4_SRC}/.dockerignore" 2>/dev/null || true
 	fi
@@ -337,7 +341,7 @@ install_control_scripts() {
 	cp -f "${src}/lib/common.sh" /usr/local/lib/hblink4/common.sh
 	chmod 644 /usr/local/lib/hblink4/common.sh
 	local name
-	for name in menu initial-setup start stop restart flush logs update upgrade uninstall diagnostics; do
+	for name in menu initial-setup start stop restart flush logs update upgrade uninstall diagnostics ssl; do
 		cp -p "${sbin}/${name}" "/usr/local/sbin/hblink4-${name}"
 		chmod 755 "/usr/local/sbin/hblink4-${name}"
 	done
