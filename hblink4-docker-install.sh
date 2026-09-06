@@ -220,6 +220,7 @@ if ! build_images_with_fallback; then
 	exit 1
 fi
 ok "Images built"
+prune_docker_leftovers
 
 echo "------------------------------------------------------------------------------"
 echo "Starting HBlink4 stack....."

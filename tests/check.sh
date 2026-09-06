@@ -168,6 +168,15 @@ else
 	bad "ensure_config / sample download"
 fi
 
+if grep -q 'prune_docker_leftovers' lib/common.sh \
+	&& grep -q 'prune_docker_leftovers' usr/local/sbin/update \
+	&& grep -q 'prune_docker_leftovers' usr/local/sbin/upgrade \
+	&& ! grep -nE 'docker[[:space:]]+system[[:space:]]+prune[[:space:]]+-a' hblink4-docker-install.sh usr/local/sbin/* lib/common.sh; then
+	ok "update/upgrade prune dangling images and build cache (no prune -a)"
+else
+	bad "disk prune helper missing or uses docker system prune -a"
+fi
+
 if grep -q 'depends_on' docker-compose.yml && grep -A2 'container_name: hblink4$' docker-compose.yml | grep -q 'depends_on' || grep -B20 'container_name: hblink4$' docker-compose.yml | grep -q 'hblink4-dash'; then
 	ok "engine depends_on dashboard (start dash first)"
 else

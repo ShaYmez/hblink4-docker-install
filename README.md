@@ -86,7 +86,7 @@ nano config/config.json
 
 ## Update and upgrade
 
-Both pull **this** installer repo and **n0mjs710/HBlink4**, then rebuild local images. Configs are not touched.
+Both pull **this** installer repo and **n0mjs710/HBlink4**, then rebuild local images. Configs are not touched. After the build, dangling images and unused build cache are pruned so the box does not accumulate old layers.
 
 ```sh
 hblink4-update      # git pull + docker compose build + up

@@ -78,7 +78,7 @@ note "Stopping stack..."
 
 note "Clean rebuild (--no-cache --pull of Python base only)..."
 build_images_with_fallback --no-cache || exit 1
-docker image prune -f >/dev/null 2>&1 || true
+prune_docker_leftovers
 set_permissions
 ( cd "$HBDIR" && docker compose up -d --force-recreate )
 sleep 4

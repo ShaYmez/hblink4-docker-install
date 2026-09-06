@@ -60,6 +60,11 @@ echo
 note "Disk"
 df -h / /var /opt 2>/dev/null | sed 's/^/  /'
 echo
+if command -v docker >/dev/null 2>&1; then
+	note "Docker disk (images / cache)"
+	docker system df 2>/dev/null | sed 's/^/  /' || true
+fi
+echo
 note "Last 40 engine file-log lines"
 tail -n 40 "${HBLINK4_LOGDIR}/hblink.log" 2>/dev/null || echo "  (no file log yet)"
 echo

@@ -328,6 +328,14 @@ build_images_with_fallback() {
 	( cd "$HBDIR" && PYTHON_IMAGE="$PYTHON_IMAGE_FALLBACK" docker compose build "${extra[@]}" )
 }
 
+# Dangling images + unused BuildKit cache only. Never prune -a (that would
+# drop the tagged Python base while the stack is down).
+prune_docker_leftovers() {
+	note "Pruning dangling images and unused build cache..."
+	docker image prune -f >/dev/null 2>&1 || true
+	docker builder prune -f >/dev/null 2>&1 || true
+}
+
 set_permissions() {
 	chmod 0755 "$HBDIR" "$HBLINK4_LOGDIR" "${HBDIR}/dashboard/data" 2>/dev/null || true
 	chown -R "${RADIO_UID}" "$HBDIR" "$HBLINK4_LOGDIR" 2>/dev/null || true

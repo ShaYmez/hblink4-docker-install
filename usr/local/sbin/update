@@ -42,7 +42,7 @@ note "Stopping stack..."
 
 note "Rebuilding local images (no Hub app image)..."
 build_images_with_fallback || exit 1
-docker image prune -f >/dev/null 2>&1 || true
+prune_docker_leftovers
 
 set_permissions
 ( cd "$HBDIR" && docker compose up -d )
