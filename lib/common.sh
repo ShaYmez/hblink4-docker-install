@@ -91,8 +91,29 @@ compose_in_hbdir() {
 	( cd "$HBDIR" && docker compose "$@" )
 }
 
+# 65-column frame: two-space indent, 61-character inner, light box drawing.
+# Banner art, status, menus, footer, and section rules all share this width.
+print_box_top() {
+	echo "${C_CYAN}  ┌─────────────────────────────────────────────────────────────┐${C_RESET}"
+}
+print_box_mid() {
+	echo "${C_CYAN}  ├─────────────────────────────────────────────────────────────┤${C_RESET}"
+}
+print_box_bot() {
+	echo "${C_CYAN}  └─────────────────────────────────────────────────────────────┘${C_RESET}"
+}
+print_box_row() {
+	printf "  ${C_CYAN}│${C_RESET}  %-59s${C_CYAN}│${C_RESET}\n" "$1"
+}
+print_dash_rule() {
+	echo "${C_CYAN}  ---------------------------------------------------------------${C_RESET}"
+}
+print_star_rule() {
+	echo "${C_CYAN}  ***************************************************************${C_RESET}"
+}
+
 print_banner() {
-	local ver
+	local ver tag sub pad
 	ver="$(cat "$(installer_path)/VERSION" 2>/dev/null || echo "0.1.0")"
 	echo "${C_BCYAN}"
 	cat << 'EOF'
@@ -106,8 +127,15 @@ print_banner() {
   │     ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝     ╚═╝   │
   │                                                             │
 EOF
-	echo "  │     ${C_BWHITE}Docker Installer  v${ver}${C_BCYAN}                               │"
-	echo "  │     ${C_DIM}Aka ShaYmez${C_BCYAN}  ·  engine + dashboard  ·  host net      │"
+	# Inner width 61 — pad from plain-text length so colour codes cannot shift the right │.
+	tag="Docker Installer  v${ver}"
+	pad=$((61 - 5 - ${#tag}))
+	[ "$pad" -lt 0 ] && pad=0
+	printf "  │     ${C_BWHITE}%s${C_BCYAN}%*s│\n" "$tag" "$pad" ""
+	sub="Aka ShaYmez  ·  engine + dashboard  ·  host net"
+	pad=$((61 - 5 - ${#sub}))
+	[ "$pad" -lt 0 ] && pad=0
+	printf "  │     ${C_DIM}Aka ShaYmez${C_BCYAN}  ·  engine + dashboard  ·  host net%*s│\n" "$pad" ""
 	echo "  └─────────────────────────────────────────────────────────────┘"
 	echo "${C_RESET}"
 }
@@ -126,27 +154,27 @@ print_status_box() {
 		dash_col="${C_BGREEN}"
 	fi
 	# Inner width 61. Colour codes wrap the 7-char status so printf padding stays aligned.
-	echo "${C_CYAN}  ┌─────────────────────────────────────────────────────────────┐${C_RESET}"
+	print_box_top
 	printf "  ${C_CYAN}│${C_RESET}  Host %-16s  Engine ${eng_col}%s${C_RESET}%-22s${C_CYAN}│${C_RESET}\n" "$ip" "$eng_txt" ""
 	printf "  ${C_CYAN}│${C_RESET}  Dash  ${dash_col}%s${C_RESET}%-46s${C_CYAN}│${C_RESET}\n" "$dash_txt" ""
-	echo "${C_CYAN}  └─────────────────────────────────────────────────────────────┘${C_RESET}"
+	print_box_bot
 }
 
 print_menu_box() {
-	# Args: title, then N lines of "key|label"
+	# Args: title, then N lines of "key|label". Same 61-inner light box as the banner.
 	local title="$1"
 	shift
 	echo
-	echo "${C_CYAN}  ╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
-	printf "  ${C_CYAN}║${C_RESET}  ${C_BOLD}%-61s${C_RESET}${C_CYAN}║${C_RESET}\n" "$title"
-	echo "${C_CYAN}  ╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
+	print_box_top
+	printf "  ${C_CYAN}│${C_RESET}  ${C_BOLD}%-59s${C_RESET}${C_CYAN}│${C_RESET}\n" "$title"
+	print_box_mid
 	local line key label
 	for line in "$@"; do
 		key="${line%%|*}"
 		label="${line#*|}"
-		printf "  ${C_CYAN}║${C_RESET}    ${C_BYELLOW}[%s]${C_RESET}  %-54s ${C_CYAN}║${C_RESET}\n" "$key" "$label"
+		printf "  ${C_CYAN}│${C_RESET}    ${C_BYELLOW}[%s]${C_RESET}  %-52s${C_CYAN}│${C_RESET}\n" "$key" "$label"
 	done
-	echo "${C_CYAN}  ╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
+	print_box_bot
 	echo
 }
 
@@ -173,17 +201,16 @@ dots() {
 print_footer() {
 	local ip
 	ip="$(host_ip)"
+	[ -z "$ip" ] && ip="unknown"
 	echo
-	echo "${C_CYAN}*************************************************************************${C_RESET}"
-	echo
-	echo "              HBlink4 is Copyright (C) Cortney T. Buffington, N0MJS"
-	echo "              This installer: Copyright © 2026 Shane Daley - M0VUB"
-	echo "                              Aka ShaYmez  <shane@freestar.network>"
-	echo
-	echo "                     Your IP address is ${ip:-unknown}"
-	echo "                    Type 'hblink4-menu' for main menu"
-	echo
-	echo "${C_CYAN}*************************************************************************${C_RESET}"
+	print_box_top
+	print_box_row "HBlink4 is Copyright (C) Cortney T. Buffington, N0MJS"
+	print_box_row "This installer: Copyright (C) 2026 Shane Daley - M0VUB"
+	print_box_row "Aka ShaYmez  <shane@freestar.network>"
+	print_box_row ""
+	print_box_row "Your IP address is ${ip}"
+	print_box_row "Type 'hblink4-menu' for main menu"
+	print_box_bot
 }
 
 # ---------------------------------------------------------------------------

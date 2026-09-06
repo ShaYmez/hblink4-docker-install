@@ -79,6 +79,66 @@ else
 	ok "menu choices not captured via \$(read_choice)"
 fi
 
+if grep -nE '^[[:space:]]*echo .*(\*{70}|-{70})' hblink4-docker-install.sh lib/common.sh usr/local/sbin/*; then
+	bad "wide star/dash echo rules still present (should be 65-col helpers)"
+else
+	ok "no leftover 70+ char star/dash echo rules"
+fi
+
+BOX_AUDIT=$(PYTHONIOENCODING=utf-8 python3 - <<'PY'
+import re, subprocess, unicodedata, sys
+
+def vis(s):
+    return sum(2 if unicodedata.east_asian_width(c) in ("F", "W") else 1 for c in s)
+
+script = r"""
+. ./lib/common.sh
+installer_path() { echo .; }
+container_running() { return 0; }
+host_ip() { echo 207.246.85.40; }
+print_banner
+print_status_box
+print_footer
+print_dash_rule
+print_star_rule
+print_menu_box "HBlink4 Control" "1|Services" "2|Configuration" "3|Logs & Diagnostics" "4|Updates" "5|System" "0|Exit"
+print_menu_box "Services" "1|Start stack (engine + dashboard)" "2|Start engine only" "3|Start dashboard only" "4|Stop stack" "5|Restart stack" "6|Flush (truncate logs + restart)" "0|Back"
+print_menu_box "Configuration" "1|Edit engine config.json" "2|Edit dashboard config.json" "3|Edit docker-compose.yml" "4|Re-fetch missing samples only" "5|Enable HTTPS (Let's Encrypt)" "0|Back"
+print_menu_box "Logs & Diagnostics" "1|Live logs (all)  compose logs -f --tail=50" "2|Live engine logs" "3|Live dashboard logs" "4|Follow file log     /var/log/hblink4/hblink.log" "5|Diagnostics dump" "6|Flush conntrack" "0|Back"
+print_menu_box "Updates" "1|Update (git pull + rebuild)" "2|Upgrade / clean rebuild (--no-cache)" "3|System apt update && upgrade" "0|Back"
+print_menu_box "System" "1|Uninstall HBlink4" "2|Re-run installer" "3|Reboot entire server" "4|Shutdown entire server" "0|Back"
+print_menu_box "Initial Setup" "1|Re-Install" "2|Bash shell (type exit to return)" "3|Edit engine config.json" "4|Edit dashboard config.json" "5|Start HBlink4 stack" "6|Stop HBlink4 stack" "7|System apt update && upgrade" "8|Finish setup & exit"
+host_ip() { echo unknown; }
+container_running() { return 1; }
+print_status_box
+host_ip() { echo 255.255.255.255; }
+container_running() { return 0; }
+print_status_box
+"""
+out = subprocess.check_output(["bash", "-lc", script])
+plain = re.sub(r"\x1b\[[0-9;]*m", "", out.decode("utf-8"))
+bad = []
+for i, line in enumerate(plain.splitlines(), 1):
+    stripped = line.strip()
+    if not stripped or stripped[0] not in "┌└├│*-":
+        continue
+    w = vis(line)
+    if w != 65:
+        bad.append(f"line {i} vis={w} {line.encode('unicode_escape').decode()}")
+if bad:
+    print("FAIL")
+    print("\n".join(bad))
+    sys.exit(1)
+print("OK")
+PY
+) || true
+if [ "${BOX_AUDIT%%$'\n'*}" = "OK" ]; then
+	ok "banner/status/menu/footer/rules are 65 columns"
+else
+	echo "$BOX_AUDIT"
+	bad "box/rule column width"
+fi
+
 # --- no CRLF (Linux / GitHub Actions). Windows checkouts may be CRLF. ---
 if [ "${CI:-}" = "true" ] || [ "$(uname -s)" = "Linux" ]; then
 	CRLF_HITS=$(grep -l $'\r' hblink4-docker-install.sh docker-compose.yml lib/*.sh usr/local/sbin/* tests/*.sh docker/hblink4/Dockerfile docker/dashboard/Dockerfile 2>/dev/null || true)

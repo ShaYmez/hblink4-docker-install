@@ -69,6 +69,7 @@ config_menu() {
 	while : ; do
 		clear
 		print_banner
+		print_status_box
 		print_menu_box "Configuration" \
 			"1|Edit engine config.json" \
 			"2|Edit dashboard config.json" \
@@ -111,7 +112,7 @@ logs_menu() {
 		print_banner
 		print_status_box
 		print_menu_box "Logs & Diagnostics" \
-			"1|Live logs (all)     docker compose logs -f --tail=50" \
+			"1|Live logs (all)  compose logs -f --tail=50" \
 			"2|Live engine logs" \
 			"3|Live dashboard logs" \
 			"4|Follow file log     /var/log/hblink4/hblink.log" \
@@ -143,6 +144,7 @@ updates_menu() {
 	while : ; do
 		clear
 		print_banner
+		print_status_box
 		print_menu_box "Updates" \
 			"1|Update (git pull + rebuild)" \
 			"2|Upgrade / clean rebuild (--no-cache)" \
@@ -162,6 +164,7 @@ system_menu() {
 	while : ; do
 		clear
 		print_banner
+		print_status_box
 		print_menu_box "System" \
 			"1|Uninstall HBlink4" \
 			"2|Re-run installer" \

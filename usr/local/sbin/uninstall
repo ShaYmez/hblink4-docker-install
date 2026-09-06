@@ -113,9 +113,9 @@ rm -rf "$HBDIR" "$HBLINK4_SRC" "$HBLINK4_LOGDIR"
 rm -f /etc/logrotate.d/hblink4
 
 echo
-echo "${C_CYAN}*************************************************************************${C_RESET}"
+print_star_rule
 echo "              HBlink4 uninstallation complete. Aka ShaYmez."
 echo "  Configuration backup: ${backup_dir}"
 echo "  Docker, Apache, certbot, and Let's Encrypt certificates were left installed."
-echo "${C_CYAN}*************************************************************************${C_RESET}"
+print_star_rule
 exit 0

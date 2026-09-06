@@ -86,9 +86,9 @@ ARC=$(lscpu 2>/dev/null | awk '/Architecture/ {print $2; exit}')
 DEP="wget curl git sudo python3 conntrack sed ca-certificates gnupg lsb-release nano"
 
 print_banner
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo "Downloading and installing required software & dependencies....."
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 
 install_docker_and_dependencies() {
 	note "Installing Docker Engine and host packages..."
@@ -181,9 +181,9 @@ elif [ "$OS" = "ubuntu" ]; then
 	fi
 fi
 
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo "Installing control scripts /usr/local/sbin....."
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 strip_crlf "$DIRDIR"
 install_control_scripts "$DIRDIR"
 if [ -e /usr/local/sbin/hblink4-menu ]; then
@@ -198,23 +198,23 @@ if [ -f "${DIRDIR}/files/hblink4-logrotate" ]; then
 	chmod 644 /etc/logrotate.d/hblink4
 fi
 
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo "Cloning / updating HBlink4 source (n0mjs710/HBlink4)....."
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 clone_or_pull_hblink4 || exit 1
 ok "HBlink4 source at ${HBLINK4_SRC}"
 
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo "Installing compose tree and configuration....."
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 install_compose_tree "$DIRDIR"
 ensure_config || exit 1
 set_permissions
 ok "Config + compose in ${HBDIR}"
 
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo "Building local images (hblink4-engine:local + hblink4-dash:local)....."
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 if ! build_images_with_fallback; then
 	err "Image build failed"
 	exit 1
@@ -222,9 +222,9 @@ fi
 ok "Images built"
 prune_docker_leftovers
 
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo "Starting HBlink4 stack....."
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 cd "$HBDIR" || exit 1
 docker compose up -d
 sleep 6
@@ -244,7 +244,7 @@ else
 fi
 
 echo
-echo "${C_CYAN}*************************************************************************${C_RESET}"
+print_star_rule
 echo
 echo "                 The HBlink4 Docker Install Is Complete!"
 echo
@@ -273,17 +273,17 @@ else
 	echo "               You're running on ${ARC:-?} with Debian ${VERSION}"
 fi
 echo
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo "                          Installed Versions"
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 docker --version
 docker compose version
 echo "Note: This installation uses Docker Compose v2 (docker compose command)"
-echo "------------------------------------------------------------------------------"
+print_dash_rule
 echo
 echo "                     Thanks for using this script."
 echo "                 Copyright © 2026 Shane Daley - M0VUB"
 echo "                              Aka ShaYmez"
 echo
-echo "${C_CYAN}*************************************************************************${C_RESET}"
+print_star_rule
 exit 0
