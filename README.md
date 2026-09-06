@@ -123,8 +123,81 @@ events     8765/tcp   (localhost only)
 MMDVM      62031/udp
 IPv6 DMR   62032/udp  (off by default)
 OBP        per openbridge_connections local_port in config.json
+           (this edge uses UDP 62036 to SystemX Scotland)
 ssh        22/tcp
 ```
+
+## OpenBridge to SystemX / HBlink3
+
+OpenBridge is **built into** HBlink4 (`openbridge_connections` in `/etc/hblink4/config/config.json`). No extra container. Typical layout is this box as the **edge** (repeaters/hotspots on 62031) and a SystemX / RYSEN / HBlink3 box as the **core**. Cortney’s docs: [OpenBridge Trunks](https://github.com/n0mjs710/HBlink4/blob/main/docs/openbridge.md).
+
+**SystemX does not use `rules.py` for OBP.** Traffic is allowed or dropped by the OBP stanza ACL. Set `TGID_ACL` to `PERMIT:` with the talkgroups you want on that trunk. Do not add conference-bridge rules for the OBP system.
+
+**HBlink4 cannot “send everything”.** The trunk is fail-closed: only TGIDs listed in `talkgroup_slots` move, in either direction. Put the same set on both sides. Also add those TGIDs to `repeater_configurations.default` slot lists if local radios should key them. A dummy repeater that only has `TS2=8` will show OBP RX with `targets=0` — that is expected.
+
+Worked example (this installer’s test edge `hblink.freestar.network` ⇄ SystemX Scotland `scotland.cq-uk.uk`). Classic HMAC OBP (`PROTO_VER: 1`, `ENHANCED_OBP: False`) on UDP **62036**. Shared passphrase stays in the two config files — do not commit it.
+
+Talkgroups on this trunk:
+
+| TGID | Name |
+|------|------|
+| 23426 | FreeSTAR |
+| 2350 | ChatterBOX |
+| 116 | UK TGIF |
+| 320 | QuadNet |
+| 321 | QNet Tech |
+| 31665 | TGIF Main |
+| 67498 | Netaholics |
+
+HBlink4 (`/etc/hblink4/config/config.json`):
+
+```json
+"openbridge_connections": [
+    {
+        "enabled": true,
+        "name": "SystemX-Scotland",
+        "network_id": 23550,
+        "local_address": "0.0.0.0",
+        "local_port": 62036,
+        "target_address": "scotland.cq-uk.uk",
+        "target_port": 62036,
+        "passphrase": "<shared-secret>",
+        "preserve_source_peer": true,
+        "talkgroup_slots": {
+            "23426": "1",
+            "2350": "1",
+            "116": "1",
+            "320": "1",
+            "321": "1",
+            "31665": "1",
+            "67498": "1"
+        }
+    }
+]
+```
+
+Then `cd /etc/hblink4 && docker compose restart hblink4`. A good log line looks like: `OpenBridge "SystemX-Scotland" bound 0.0.0.0:62036 → <scotland-ip>:62036 (7 talkgroups)`. `hblink4-update` does **not** overwrite this file.
+
+SystemX (`rysen.cfg` OBP stanza — ACL only, no rules):
+
+```
+[OBP-HBLINK-TEST]
+MODE: OPENBRIDGE
+ENABLED: True
+PORT: 62036
+NETWORK_ID: 2355
+PASSPHRASE: <shared-secret>
+TARGET_IP: hblink.freestar.network
+TARGET_PORT: 62036
+USE_ACL: True
+SUB_ACL: DENY:1
+TGID_ACL: PERMIT:116,320,321,2350,23426,31665,67498
+RELAX_CHECKS: True
+ENHANCED_OBP: False
+PROTO_VER: 1
+```
+
+Restart the SystemX / RYSEN container after editing. Global `TGID_TS1_ACL` on OpenBridge is TS1 on the wire; the PERMIT list above is the real filter.
 
 ## Companion programs (not installed)
 
@@ -137,7 +210,7 @@ These are **separate daemons** by N0MJS. They are not plugins inside HBlink4 and
 | ipsc2hbp | https://github.com/n0mjs710/ipsc2hbp | Same translator in Python 3.11+. Prefer ipsc2hbpc for production. |
 | cc2obp | https://github.com/n0mjs710/cc2obp | c-Bridge CC-CC ⇄ OpenBridge. Peer it to `openbridge_connections` in `config.json`. |
 
-OpenBridge trunks themselves are **built into** HBlink4 (`openbridge_connections` in the engine JSON). Typical use is an HBlink3 core to this HBlink4 edge — no extra binary.
+OpenBridge to SystemX / HBlink3 is **not** a companion — see **OpenBridge to SystemX / HBlink3** above.
 
 ## Uninstall
 
