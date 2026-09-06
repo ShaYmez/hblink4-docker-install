@@ -1,0 +1,61 @@
+#!/bin/bash
+# HBlink4 Docker — first-time setup menu
+# Version 0.1.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	. "${_ROOT}/lib/common.sh"
+fi
+
+read_choice() {
+	printf "  Select: "
+	read -r choice
+	printf '%s' "$choice"
+}
+
+while : ; do
+	clear
+	print_banner
+	print_status_box
+	print_menu_box "Initial Setup" \
+		"1|Re-Install" \
+		"2|Bash shell (type exit to return)" \
+		"3|Edit engine config.json" \
+		"4|Edit dashboard config.json" \
+		"5|Start HBlink4 stack" \
+		"6|Stop HBlink4 stack" \
+		"7|System apt update && upgrade" \
+		"8|Finish setup & exit"
+	case "$(read_choice)" in
+		1)
+			INSTALLER_PATH="$(installer_path)"
+			if [ -f "${INSTALLER_PATH}/hblink4-docker-install.sh" ]; then
+				sudo "${INSTALLER_PATH}/hblink4-docker-install.sh"
+			else
+				err "Installer not found at ${INSTALLER_PATH}"
+				pause
+			fi
+			;;
+		2) sudo /usr/bin/bash ;;
+		3) sudo ${EDITOR:-nano} "${HBDIR}/config/config.json" ;;
+		4) sudo ${EDITOR:-nano} "${HBDIR}/dashboard/config.json" ;;
+		5) sudo /usr/local/sbin/hblink4-start all; pause ;;
+		6) sudo /usr/local/sbin/hblink4-stop; pause ;;
+		7) sudo apt-get update -y && sudo apt-get upgrade; pause ;;
+		8)
+			sudo /usr/local/sbin/hblink4-flush
+			exit 0
+			;;
+		0|q|Q) exit 0 ;;
+	esac
+done
+exit 0

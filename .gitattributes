@@ -1,0 +1,13 @@
+# Shell and compose files must stay LF (Debian / GitHub Actions).
+* text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.conf text eol=lf
+Dockerfile text eol=lf
+*.md text eol=lf
+usr/local/sbin/* text eol=lf
+lib/* text eol=lf
+tests/*.sh text eol=lf
+docker/hblink4/Dockerfile text eol=lf
+docker/dashboard/Dockerfile text eol=lf

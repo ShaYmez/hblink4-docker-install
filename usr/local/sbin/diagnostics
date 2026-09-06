@@ -1,0 +1,52 @@
+#!/bin/bash
+# HBlink4 Docker control — diagnostics
+# Version 0.1.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	. "${_ROOT}/lib/common.sh"
+fi
+
+print_banner
+print_status_box
+echo
+note "docker ps"
+docker ps --filter name=hblink4
+echo
+if [ -f "${HBDIR}/docker-compose.yml" ]; then
+	note "docker compose ps"
+	( cd "$HBDIR" && docker compose ps )
+fi
+echo
+note "Listening sockets (62031 / 8080 / 8765)"
+ss -ulnp 2>/dev/null | grep -E '62031|62032' || true
+ss -tlnp 2>/dev/null | grep -E '8080|8765' || true
+echo
+note "Installer / HBlink4 git revisions"
+echo "  installer : $(installer_path)"
+git -C "$(installer_path)" rev-parse --short HEAD 2>/dev/null | sed 's/^/  installer HEAD: /'
+git -C "${HBLINK4_SRC}" rev-parse --short HEAD 2>/dev/null | sed 's/^/  HBlink4 HEAD:   /'
+echo
+note "Python image pin"
+cat "${HBDIR}/.env" 2>/dev/null || echo "  (no .env)"
+echo
+note "Disk"
+df -h / /var /opt 2>/dev/null | sed 's/^/  /'
+echo
+note "Last 40 engine file-log lines"
+tail -n 40 "${HBLINK4_LOGDIR}/hblink.log" 2>/dev/null || echo "  (no file log yet)"
+echo
+if [ "${1:-}" = "--conntrack" ] && command -v conntrack >/dev/null 2>&1; then
+	note "Flushing conntrack"
+	conntrack -F
+fi
+ok "Diagnostics complete. Aka ShaYmez."

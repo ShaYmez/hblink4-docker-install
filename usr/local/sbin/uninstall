@@ -1,0 +1,108 @@
+#!/bin/bash
+# HBlink4 Docker uninstall
+# Version 0.1.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	. "${_ROOT}/lib/common.sh"
+fi
+
+usage() {
+	cat << 'EOF'
+Usage: hblink4-uninstall [--dry-run|--help]
+
+Remove HBlink4 Docker install files, containers, and control scripts.
+Does not remove Docker packages.
+
+  --dry-run   Print what would be removed and exit.
+  --help      Show this text.
+EOF
+}
+
+arg1=$(printf '%s' "${1:-}" | tr -d '\r')
+case "$arg1" in
+	-h|--help) usage; exit 0 ;;
+	--dry-run)
+		echo "DRY RUN — uninstall would:"
+		echo "  stop docker compose in ${HBDIR}"
+		echo "  remove containers/images named hblink4 or hblink4-dash"
+		echo "  remove /usr/local/sbin/hblink4-* and /usr/local/lib/hblink4"
+		echo "  backup ${HBDIR} to /root/hblink4-backup-<timestamp>"
+		echo "  remove ${HBDIR} ${HBLINK4_SRC} ${HBLINK4_LOGDIR}"
+		echo "Docker packages would be left installed."
+		exit 0
+		;;
+esac
+
+require_root
+clear
+print_banner
+echo "WARNING: This will remove ALL HBlink4 installer components including:"
+echo "  - Docker containers and local images (hblink4-engine / hblink4-dash)"
+echo "  - Configuration (${HBDIR})"
+echo "  - Source clone (${HBLINK4_SRC})"
+echo "  - Logs (${HBLINK4_LOGDIR})"
+echo "  - Control scripts (/usr/local/sbin/hblink4-*)"
+echo
+echo "NOTE: Docker Engine packages will NOT be removed."
+echo
+if ! confirm_yes "Are you sure you want to continue? (yes/no): "; then
+	echo "Uninstall cancelled."
+	exit 0
+fi
+
+note "Stopping stack..."
+if [ -f "${HBDIR}/docker-compose.yml" ]; then
+	( cd "$HBDIR" && docker compose down --remove-orphans ) 2>/dev/null || true
+fi
+
+if command -v docker >/dev/null 2>&1; then
+	docker rm -f hblink4 hblink4-dash 2>/dev/null || true
+	imgs=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | awk '/hblink4-engine|hblink4-dash/ {print $2}')
+	if [ -n "$imgs" ]; then
+		# shellcheck disable=SC2086
+		docker rmi -f $imgs 2>/dev/null || true
+	fi
+fi
+
+note "Removing control scripts..."
+rm -f /usr/local/sbin/hblink4-menu \
+	/usr/local/sbin/hblink4-flush \
+	/usr/local/sbin/hblink4-update \
+	/usr/local/sbin/hblink4-upgrade \
+	/usr/local/sbin/hblink4-stop \
+	/usr/local/sbin/hblink4-start \
+	/usr/local/sbin/hblink4-restart \
+	/usr/local/sbin/hblink4-initial-setup \
+	/usr/local/sbin/hblink4-uninstall \
+	/usr/local/sbin/hblink4-logs \
+	/usr/local/sbin/hblink4-diagnostics
+rm -rf /usr/local/lib/hblink4
+
+backup_dir="/root/hblink4-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$backup_dir"
+if [ -d "$HBDIR" ]; then
+	note "Backing up ${HBDIR} to ${backup_dir}..."
+	cp -a "$HBDIR" "$backup_dir/" 2>/dev/null || true
+fi
+
+note "Removing directories..."
+rm -rf "$HBDIR" "$HBLINK4_SRC" "$HBLINK4_LOGDIR"
+rm -f /etc/logrotate.d/hblink4
+
+echo
+echo "${C_CYAN}*************************************************************************${C_RESET}"
+echo "              HBlink4 uninstallation complete. Aka ShaYmez."
+echo "  Configuration backup: ${backup_dir}"
+echo "  Docker packages were left installed."
+echo "${C_CYAN}*************************************************************************${C_RESET}"
+exit 0

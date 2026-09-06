@@ -1,0 +1,42 @@
+#!/bin/bash
+# HBlink4 Docker control — live logs
+# Version 0.1.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	. "${_ROOT}/lib/common.sh"
+fi
+
+cd "$HBDIR" || exit 1
+
+case "${1:-all}" in
+	engine|hblink4)
+		exec docker compose logs -f --tail=50 hblink4
+		;;
+	dash|dashboard|hblink4-dash)
+		exec docker compose logs -f --tail=50 hblink4-dash
+		;;
+	file)
+		if [ -f "${HBLINK4_LOGDIR}/hblink.log" ]; then
+			exec tail -n 50 -f "${HBLINK4_LOGDIR}/hblink.log"
+		fi
+		err "No file log at ${HBLINK4_LOGDIR}/hblink.log"
+		exit 1
+		;;
+	all|"")
+		exec docker compose logs -f --tail=50
+		;;
+	*)
+		err "Usage: hblink4-logs [all|engine|dash|file]"
+		exit 1
+		;;
+esac

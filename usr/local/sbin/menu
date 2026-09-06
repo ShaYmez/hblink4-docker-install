@@ -1,0 +1,191 @@
+#!/bin/bash
+# HBlink4 Docker control — interactive menu (native Bash ANSI, no whiptail)
+# Version 0.1.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	. "${_ROOT}/lib/common.sh"
+fi
+
+read_choice() {
+	local prompt="${1:-  Select: }"
+	local choice
+	printf "%s" "$prompt"
+	read -r choice
+	printf '%s' "$choice"
+}
+
+edit_file() {
+	local f="$1"
+	if [ ! -f "$f" ]; then
+		err "File not found: $f"
+		pause
+		return
+	fi
+	${EDITOR:-nano} "$f"
+}
+
+services_menu() {
+	while : ; do
+		clear
+		print_banner
+		print_status_box
+		print_menu_box "Services" \
+			"1|Start stack (engine + dashboard)" \
+			"2|Start engine only" \
+			"3|Start dashboard only" \
+			"4|Stop stack" \
+			"5|Restart stack" \
+			"6|Flush (truncate logs + restart)" \
+			"0|Back"
+		case "$(read_choice)" in
+			1) sudo /usr/local/sbin/hblink4-start all; pause ;;
+			2) sudo /usr/local/sbin/hblink4-start engine; pause ;;
+			3) sudo /usr/local/sbin/hblink4-start dash; pause ;;
+			4) sudo /usr/local/sbin/hblink4-stop; pause ;;
+			5) sudo /usr/local/sbin/hblink4-restart; pause ;;
+			6) sudo /usr/local/sbin/hblink4-flush; pause ;;
+			0|b|q|"") return ;;
+		esac
+	done
+}
+
+config_menu() {
+	while : ; do
+		clear
+		print_banner
+		print_menu_box "Configuration" \
+			"1|Edit engine config.json" \
+			"2|Edit dashboard config.json" \
+			"3|Edit docker-compose.yml" \
+			"4|Re-fetch missing samples only" \
+			"0|Back"
+		case "$(read_choice)" in
+			1) edit_file "${HBDIR}/config/config.json" ;;
+			2) edit_file "${HBDIR}/dashboard/config.json" ;;
+			3) edit_file "${HBDIR}/docker-compose.yml" ;;
+			4)
+				# Only download if missing — ensure_config never overwrites
+				ensure_config
+				pause
+				;;
+			0|b|q|"") return ;;
+		esac
+	done
+}
+
+logs_menu() {
+	while : ; do
+		clear
+		print_banner
+		print_status_box
+		print_menu_box "Logs & Diagnostics" \
+			"1|Live logs (all)     docker compose logs -f --tail=50" \
+			"2|Live engine logs" \
+			"3|Live dashboard logs" \
+			"4|Follow file log     /var/log/hblink4/hblink.log" \
+			"5|Diagnostics dump" \
+			"6|Flush conntrack" \
+			"0|Back"
+		case "$(read_choice)" in
+			1) sudo /usr/local/sbin/hblink4-logs all ;;
+			2) sudo /usr/local/sbin/hblink4-logs engine ;;
+			3) sudo /usr/local/sbin/hblink4-logs dash ;;
+			4) sudo /usr/local/sbin/hblink4-logs file ;;
+			5) sudo /usr/local/sbin/hblink4-diagnostics; pause ;;
+			6)
+				if command -v conntrack >/dev/null 2>&1; then
+					sudo conntrack -F
+					ok "conntrack flushed"
+				else
+					warn "conntrack not installed"
+				fi
+				pause
+				;;
+			0|b|q|"") return ;;
+		esac
+	done
+}
+
+updates_menu() {
+	while : ; do
+		clear
+		print_banner
+		print_menu_box "Updates" \
+			"1|Update (git pull + rebuild)" \
+			"2|Upgrade / clean rebuild (--no-cache)" \
+			"3|System apt update && upgrade" \
+			"0|Back"
+		case "$(read_choice)" in
+			1) sudo /usr/local/sbin/hblink4-update; pause ;;
+			2) sudo /usr/local/sbin/hblink4-upgrade; pause ;;
+			3) sudo apt-get update -y && sudo apt-get upgrade; pause ;;
+			0|b|q|"") return ;;
+		esac
+	done
+}
+
+system_menu() {
+	while : ; do
+		clear
+		print_banner
+		print_menu_box "System" \
+			"1|Uninstall HBlink4" \
+			"2|Re-run installer" \
+			"3|Reboot entire server" \
+			"4|Shutdown entire server" \
+			"0|Back"
+		case "$(read_choice)" in
+			1) sudo /usr/local/sbin/hblink4-uninstall ;;
+			2)
+				INSTALLER_PATH="$(installer_path)"
+				if [ -f "${INSTALLER_PATH}/hblink4-docker-install.sh" ]; then
+					sudo "${INSTALLER_PATH}/hblink4-docker-install.sh"
+				else
+					err "Installer not found at ${INSTALLER_PATH}"
+					pause
+				fi
+				;;
+			3) sudo reboot ;;
+			4) sudo shutdown now ;;
+			0|b|q|"") return ;;
+		esac
+	done
+}
+
+while : ; do
+	clear
+	print_banner
+	print_status_box
+	print_menu_box "HBlink4 Control" \
+		"1|Services" \
+		"2|Configuration" \
+		"3|Logs & Diagnostics" \
+		"4|Updates" \
+		"5|System" \
+		"0|Exit"
+	case "$(read_choice)" in
+		1) services_menu ;;
+		2) config_menu ;;
+		3) logs_menu ;;
+		4) updates_menu ;;
+		5) system_menu ;;
+		0|q|Q)
+			echo
+			echo "  Type 'hblink4-menu' to enter HBlink4 Control Menu"
+			echo "  Aka ShaYmez."
+			echo
+			break
+			;;
+	esac
+done
+exit 0

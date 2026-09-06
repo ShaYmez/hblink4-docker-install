@@ -1,0 +1,90 @@
+#!/bin/bash
+# HBlink4 Docker control — upgrade (git pull both repos, --no-cache rebuild)
+# Version 0.1.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+#
+# Operator configs in /etc/hblink4 are never overwritten.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	. "${_ROOT}/lib/common.sh"
+fi
+
+require_root
+
+INSTALLER_PATH="$(installer_path)"
+SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+REPO_UPGRADE="${INSTALLER_PATH}/usr/local/sbin/upgrade"
+
+if [ -f "$REPO_UPGRADE" ]; then
+	REPO_UPGRADE_ABS="$(readlink -f "$REPO_UPGRADE" 2>/dev/null || echo "$REPO_UPGRADE")"
+	if [ "$SELF" != "$REPO_UPGRADE_ABS" ]; then
+		echo "Re-running upgrade from installer tree..."
+		exec bash "$REPO_UPGRADE_ABS" "$@"
+	fi
+fi
+
+if [ -d "${INSTALLER_PATH}/.git" ]; then
+	BEFORE_SUM=$(md5sum "$REPO_UPGRADE" 2>/dev/null | awk '{print $1}')
+	git -C "$INSTALLER_PATH" pull --ff-only || warn "git pull of installer failed — continuing"
+	AFTER_SUM=$(md5sum "$REPO_UPGRADE" 2>/dev/null | awk '{print $1}')
+	if [ -n "$BEFORE_SUM" ] && [ -n "$AFTER_SUM" ] && [ "$BEFORE_SUM" != "$AFTER_SUM" ]; then
+		echo "Installer upgrade script was updated — re-running..."
+		exec bash "$REPO_UPGRADE" "$@"
+	fi
+fi
+
+# Re-source after possible pull
+if [ -f "${INSTALLER_PATH}/lib/common.sh" ]; then
+	HBLINK4_COMMON_LOADED=
+	. "${INSTALLER_PATH}/lib/common.sh"
+fi
+
+clear
+print_banner
+echo "${C_BOLD}  Upgrade / clean rebuild${C_RESET}"
+echo "  Configs in ${HBDIR}/config and ${HBDIR}/dashboard are not modified."
+echo
+
+if [ ! -d "$INSTALLER_PATH" ]; then
+	err "Installer directory not found at ${INSTALLER_PATH}"
+	exit 1
+fi
+if ! command -v docker >/dev/null 2>&1; then
+	err "docker is not installed."
+	exit 1
+fi
+if ! docker compose version >/dev/null 2>&1; then
+	err "Docker Compose v2 ('docker compose') is required."
+	exit 1
+fi
+
+find "${INSTALLER_PATH}/usr/local/sbin" -type f -exec sed -i 's/\r$//' {} \; 2>/dev/null || true
+sed -i 's/\r$//' "${INSTALLER_PATH}/lib/common.sh" "${INSTALLER_PATH}/docker-compose.yml" 2>/dev/null || true
+install_control_scripts "$INSTALLER_PATH"
+clone_or_pull_hblink4 || exit 1
+install_compose_tree "$INSTALLER_PATH"
+
+note "Stopping stack..."
+( cd "$HBDIR" && docker compose down --remove-orphans ) 2>/dev/null || true
+
+note "Clean rebuild (--no-cache --pull of Python base only)..."
+build_images_with_fallback --no-cache || exit 1
+docker image prune -f >/dev/null 2>&1 || true
+set_permissions
+( cd "$HBDIR" && docker compose up -d --force-recreate )
+sleep 4
+docker ps --filter name=hblink4
+echo
+( cd "$HBDIR" && docker compose logs --tail=25 )
+ok "Upgrade complete. Configs were not touched. Aka ShaYmez."
+print_footer
+exit 0

@@ -1,0 +1,48 @@
+###############################################################################
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This file is part of the HBlink4 Docker installer (not HBlink4 itself).
+#   HBlink4 is Copyright (C) 2016-2025 Cortney T. Buffington, N0MJS.
+###############################################################################
+#
+# Local image builds from /opt/HBlink4 (n0mjs710/HBlink4). No Hub app image.
+# network_mode: host — UDP 62031 and TCP 8080 bind on the host namespace.
+# Dashboard starts first; the engine dials 127.0.0.1:8765 (TCP events).
+
+name: hblink4
+
+services:
+  hblink4-dash:
+    container_name: hblink4-dash
+    build:
+      context: /opt/HBlink4
+      dockerfile: /etc/hblink4/docker/dashboard/Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.14-slim-bookworm}
+    image: hblink4-dash:local
+    restart: unless-stopped
+    network_mode: host
+    working_dir: /opt/HBlink4
+    volumes:
+      - /etc/hblink4/dashboard/config.json:/opt/HBlink4/dashboard/config.json
+      - /etc/hblink4/config/config.json:/opt/HBlink4/config/config.json:ro
+      - /etc/hblink4/dashboard/data:/opt/HBlink4/dashboard/data
+    command: ["python", "-u", "dashboard/server.py"]
+
+  hblink4:
+    container_name: hblink4
+    build:
+      context: /opt/HBlink4
+      dockerfile: /etc/hblink4/docker/hblink4/Dockerfile
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.14-slim-bookworm}
+    image: hblink4-engine:local
+    restart: unless-stopped
+    network_mode: host
+    working_dir: /opt/HBlink4
+    depends_on:
+      - hblink4-dash
+    volumes:
+      - /etc/hblink4/config/config.json:/opt/HBlink4/config/config.json:ro
+      - /var/log/hblink4:/opt/HBlink4/logs
+    command: ["python", "-u", "hblink4/hblink.py", "config/config.json"]

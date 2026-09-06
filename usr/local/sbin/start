@@ -1,0 +1,55 @@
+#!/bin/bash
+# HBlink4 Docker control — start
+# Version 0.1.0 (06092026)
+#
+#   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 3 of the License, or
+#   (at your option) any later version.
+
+if [ -f /usr/local/lib/hblink4/common.sh ]; then
+	# shellcheck source=/usr/local/lib/hblink4/common.sh
+	. /usr/local/lib/hblink4/common.sh
+else
+	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	# shellcheck source=../../lib/common.sh
+	. "${_ROOT}/lib/common.sh"
+fi
+
+require_root
+clear
+print_banner
+note "Starting HBlink4 engine + dashboard..."
+dots
+ensure_config || exit 1
+cd "$HBDIR" || exit 1
+
+case "${1:-all}" in
+	engine|hblink4)
+		docker compose up -d hblink4
+		;;
+	dash|dashboard|hblink4-dash)
+		docker compose up -d hblink4-dash
+		;;
+	all|"")
+		docker compose up -d
+		;;
+	*)
+		err "Usage: hblink4-start [all|engine|dash]"
+		exit 1
+		;;
+esac
+
+sleep 2
+docker ps --filter name=hblink4
+echo
+note "Startup logs..."
+docker compose logs --tail=30
+if command -v conntrack >/dev/null 2>&1; then
+	note "Flushing conntrack..."
+	conntrack -F 2>/dev/null || true
+fi
+ok "HBlink4 stack start complete. Aka ShaYmez."
+print_footer
