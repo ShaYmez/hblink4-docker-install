@@ -2,6 +2,8 @@
 
 Debian 11 / 12 / 13 and Ubuntu 22.04 / 24.04 LTS.
 
+![HBlink](img/HBlink.png "HBlink")
+
 This is a **destructive** one-shot installer for [HBlink4](https://github.com/n0mjs710/HBlink4) (Cortney T. Buffington, N0MJS) as two Docker Compose v2 services on `network_mode: host`. Recommended on a freshly installed machine.
 
 HBlink4 is **not** on Docker Hub. This installer clones N0MJS's git tree to `/opt/HBlink4` and **builds local images** (`hblink4-engine:local` and `hblink4-dash:local`) from `python:3.14-slim-bookworm`.
@@ -15,7 +17,9 @@ HBlink4 is **not** on Docker Hub. This installer clones N0MJS's git tree to `/op
 - Event link: TCP **127.0.0.1:8765** (dashboard listens, engine dials). Official samples use a Unix socket; the installer patches both JSON files so split containers work.
 
 The dashboard is a **separate Compose service** so it can be swapped later (for HBMonv4 monitor development...) without touching the engine. (Are you up
-for the task?) There's nothing wrong with the built in dash... but people prod! 
+for the task?) There's nothing wrong with the built in dash... but people prod!
+
+![HBlink4 Dashboard](img/dashboard.png "HBlink4 Dashboard")
 
 ## Prerequisite
 
