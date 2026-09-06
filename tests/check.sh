@@ -73,6 +73,12 @@ else
 	bad "install_control_scripts missing ssl"
 fi
 
+if grep -nE '^[[:space:]]*case[[:space:]]+"\$\(read_choice\)"' usr/local/sbin/menu usr/local/sbin/initial-setup; then
+	bad "read_choice used in command substitution (prompt swallowed, keys never match)"
+else
+	ok "menu choices not captured via \$(read_choice)"
+fi
+
 # --- no CRLF (Linux / GitHub Actions). Windows checkouts may be CRLF. ---
 if [ "${CI:-}" = "true" ] || [ "$(uname -s)" = "Linux" ]; then
 	CRLF_HITS=$(grep -l $'\r' hblink4-docker-install.sh docker-compose.yml lib/*.sh usr/local/sbin/* tests/*.sh docker/hblink4/Dockerfile docker/dashboard/Dockerfile 2>/dev/null || true)

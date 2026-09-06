@@ -12,16 +12,21 @@
 if [ -f /usr/local/lib/hblink4/common.sh ]; then
 	. /usr/local/lib/hblink4/common.sh
 else
-	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 	. "${_ROOT}/lib/common.sh"
 fi
 
+export TERM="${TERM:-xterm}"
+
+# Prompt stays on the terminal. Do not capture this function with $() — that
+# used to swallow "  Select: " into the choice, so typed numbers never matched.
 read_choice() {
 	local prompt="${1:-  Select: }"
-	local choice
 	printf "%s" "$prompt"
-	read -r choice
-	printf '%s' "$choice"
+	if ! IFS= read -r MENU_CHOICE; then
+		MENU_CHOICE=""
+		return 1
+	fi
 }
 
 edit_file() {
@@ -47,7 +52,8 @@ services_menu() {
 			"5|Restart stack" \
 			"6|Flush (truncate logs + restart)" \
 			"0|Back"
-		case "$(read_choice)" in
+		read_choice || return
+		case "$MENU_CHOICE" in
 			1) sudo /usr/local/sbin/hblink4-start all; pause ;;
 			2) sudo /usr/local/sbin/hblink4-start engine; pause ;;
 			3) sudo /usr/local/sbin/hblink4-start dash; pause ;;
@@ -70,7 +76,8 @@ config_menu() {
 			"4|Re-fetch missing samples only" \
 			"5|Enable HTTPS (Let's Encrypt)" \
 			"0|Back"
-		case "$(read_choice)" in
+		read_choice || return
+		case "$MENU_CHOICE" in
 			1) edit_file "${HBDIR}/config/config.json" ;;
 			2) edit_file "${HBDIR}/dashboard/config.json" ;;
 			3) edit_file "${HBDIR}/docker-compose.yml" ;;
@@ -111,7 +118,8 @@ logs_menu() {
 			"5|Diagnostics dump" \
 			"6|Flush conntrack" \
 			"0|Back"
-		case "$(read_choice)" in
+		read_choice || return
+		case "$MENU_CHOICE" in
 			1) sudo /usr/local/sbin/hblink4-logs all ;;
 			2) sudo /usr/local/sbin/hblink4-logs engine ;;
 			3) sudo /usr/local/sbin/hblink4-logs dash ;;
@@ -140,7 +148,8 @@ updates_menu() {
 			"2|Upgrade / clean rebuild (--no-cache)" \
 			"3|System apt update && upgrade" \
 			"0|Back"
-		case "$(read_choice)" in
+		read_choice || return
+		case "$MENU_CHOICE" in
 			1) sudo /usr/local/sbin/hblink4-update; pause ;;
 			2) sudo /usr/local/sbin/hblink4-upgrade; pause ;;
 			3) sudo apt-get update -y && sudo apt-get upgrade; pause ;;
@@ -159,7 +168,8 @@ system_menu() {
 			"3|Reboot entire server" \
 			"4|Shutdown entire server" \
 			"0|Back"
-		case "$(read_choice)" in
+		read_choice || return
+		case "$MENU_CHOICE" in
 			1) sudo /usr/local/sbin/hblink4-uninstall ;;
 			2)
 				INSTALLER_PATH="$(installer_path)"
@@ -188,7 +198,8 @@ while : ; do
 		"4|Updates" \
 		"5|System" \
 		"0|Exit"
-	case "$(read_choice)" in
+	read_choice || break
+	case "$MENU_CHOICE" in
 		1) services_menu ;;
 		2) config_menu ;;
 		3) logs_menu ;;

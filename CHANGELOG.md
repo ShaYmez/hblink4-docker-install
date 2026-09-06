@@ -5,6 +5,7 @@ All notable changes to the **HBlink4 Docker installer** (not upstream HBlink4) a
 ## 0.2.0 — 2026-09-06
 
 - Optional HTTPS: `hblink4-ssl <fqdn> <email>` installs Apache + certbot on demand, terminates TLS on 443, proxies `/` and `/ws` to uvicorn on `127.0.0.1:8080`, then binds the dashboard to localhost. HTTP on 80 redirects to HTTPS. `--dry-run` supported. Menu: Configuration → Enable HTTPS.
+- Fix `hblink4-menu` / `hblink4-initial-setup`: `$(read_choice)` captured the `Select:` prompt, so typed numbers never matched.
 
 ## 0.1.0 — 2026-09-06
 

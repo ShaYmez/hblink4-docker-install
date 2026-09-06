@@ -12,14 +12,19 @@
 if [ -f /usr/local/lib/hblink4/common.sh ]; then
 	. /usr/local/lib/hblink4/common.sh
 else
-	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 	. "${_ROOT}/lib/common.sh"
 fi
 
+export TERM="${TERM:-xterm}"
+
 read_choice() {
-	printf "  Select: "
-	read -r choice
-	printf '%s' "$choice"
+	local prompt="${1:-  Select: }"
+	printf "%s" "$prompt"
+	if ! IFS= read -r MENU_CHOICE; then
+		MENU_CHOICE=""
+		return 1
+	fi
 }
 
 while : ; do
@@ -35,7 +40,8 @@ while : ; do
 		"6|Stop HBlink4 stack" \
 		"7|System apt update && upgrade" \
 		"8|Finish setup & exit"
-	case "$(read_choice)" in
+	read_choice || exit 0
+	case "$MENU_CHOICE" in
 		1)
 			INSTALLER_PATH="$(installer_path)"
 			if [ -f "${INSTALLER_PATH}/hblink4-docker-install.sh" ]; then

@@ -113,14 +113,22 @@ EOF
 }
 
 print_status_box() {
-	local eng="stopped" dash="stopped" ip
+	local eng_txt="stopped" dash_txt="stopped" ip
+	local eng_col="${C_BRED}" dash_col="${C_BRED}"
 	ip="$(host_ip)"
 	[ -z "$ip" ] && ip="unknown"
-	container_running hblink4 && eng="${C_BGREEN}running${C_RESET}" || eng="${C_BRED}stopped${C_RESET}"
-	container_running hblink4-dash && dash="${C_BGREEN}running${C_RESET}" || dash="${C_BRED}stopped${C_RESET}"
+	if container_running hblink4; then
+		eng_txt="running"
+		eng_col="${C_BGREEN}"
+	fi
+	if container_running hblink4-dash; then
+		dash_txt="running"
+		dash_col="${C_BGREEN}"
+	fi
+	# Inner width 61. Colour codes wrap the 7-char status so printf padding stays aligned.
 	echo "${C_CYAN}  ┌─────────────────────────────────────────────────────────────┐${C_RESET}"
-	printf "  ${C_CYAN}│${C_RESET}  Host %-18s  Engine %-18s          ${C_CYAN}│${C_RESET}\n" "$ip" "$eng"
-	printf "  ${C_CYAN}│${C_RESET}  Dash  %-40s          ${C_CYAN}│${C_RESET}\n" "$dash"
+	printf "  ${C_CYAN}│${C_RESET}  Host %-16s  Engine ${eng_col}%s${C_RESET}%-22s${C_CYAN}│${C_RESET}\n" "$ip" "$eng_txt" ""
+	printf "  ${C_CYAN}│${C_RESET}  Dash  ${dash_col}%s${C_RESET}%-46s${C_CYAN}│${C_RESET}\n" "$dash_txt" ""
 	echo "${C_CYAN}  └─────────────────────────────────────────────────────────────┘${C_RESET}"
 }
 

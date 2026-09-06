@@ -133,9 +133,11 @@ OpenBridge is **built into** HBlink4 (`openbridge_connections` in `/etc/hblink4/
 
 **SystemX does not use `rules.py` for OBP.** Traffic is allowed or dropped by the OBP stanza ACL. Set `TGID_ACL` to `PERMIT:` with the talkgroups you want on that trunk. Do not add conference-bridge rules for the OBP system.
 
-**HBlink4 cannot “send everything”.** The trunk is fail-closed: only TGIDs listed in `talkgroup_slots` move, in either direction. Put the same set on both sides. Also add those TGIDs to `repeater_configurations.default` slot lists if local radios should key them. A dummy repeater that only has `TS2=8` will show OBP RX with `targets=0` — that is expected.
+**HBlink4 cannot “send everything”.** The trunk is fail-closed: only TGIDs listed in `talkgroup_slots` move, in either direction. Put the same set on both sides. Also add those TGIDs to `repeater_configurations.default` slot lists if local radios should key them.
 
-Worked example (this installer’s test edge `hblink.freestar.network` ⇄ SystemX Scotland `scotland.cq-uk.uk`). Classic HMAC OBP (`PROTO_VER: 1`, `ENHANCED_OBP: False`) on UDP **62036**. Shared passphrase stays in the two config files — do not commit it.
+OpenBridge on the wire is always TS1. `talkgroup_slots` is the **local** slot HBlink4 uses to deliver that TG to hotspots/repeaters. This edge is hotspot-style, so those TGs are mapped to **TS2**. If they stay on TS1, a simplex hotspot hears nothing.
+
+Worked example (this installer’s test edge `hblink.freestar.network` ⇄ SystemX Scotland `scotland.cq-uk.uk`). Classic HMAC OBP (`PROTO_VER: 1`, `ENHANCED_OBP: False`) on UDP **62036**. Shared passphrase.
 
 Talkgroups on this trunk:
 
@@ -143,6 +145,7 @@ Talkgroups on this trunk:
 |------|------|
 | 23426 | FreeSTAR |
 | 2350 | ChatterBOX |
+| 83 | UK Chat 4 |
 | 116 | UK TGIF |
 | 320 | QuadNet |
 | 321 | QNet Tech |
@@ -162,21 +165,22 @@ HBlink4 (`/etc/hblink4/config/config.json`):
         "target_address": "scotland.cq-uk.uk",
         "target_port": 62036,
         "passphrase": "<shared-secret>",
-        "preserve_source_peer": true,
+        "preserve_source_peer": false,
         "talkgroup_slots": {
-            "23426": "1",
-            "2350": "1",
-            "116": "1",
-            "320": "1",
-            "321": "1",
-            "31665": "1",
-            "67498": "1"
+            "23426": "2",
+            "2350": "2",
+            "83": "2",
+            "116": "2",
+            "320": "2",
+            "321": "2",
+            "31665": "2",
+            "67498": "2"
         }
     }
 ]
 ```
 
-Then `cd /etc/hblink4 && docker compose restart hblink4`. A good log line looks like: `OpenBridge "SystemX-Scotland" bound 0.0.0.0:62036 → <scotland-ip>:62036 (7 talkgroups)`. `hblink4-update` does **not** overwrite this file.
+Then `cd /etc/hblink4 && docker compose restart hblink4`. A good log line looks like: `OpenBridge "SystemX-Scotland" bound 0.0.0.0:62036 → <scotland-ip>:62036 (8 talkgroups)`. `hblink4-update` does **not** overwrite this file.
 
 SystemX (`rysen.cfg` OBP stanza — ACL only, no rules):
 
@@ -185,19 +189,21 @@ SystemX (`rysen.cfg` OBP stanza — ACL only, no rules):
 MODE: OPENBRIDGE
 ENABLED: True
 PORT: 62036
-NETWORK_ID: 2355
+NETWORK_ID: 23550
 PASSPHRASE: <shared-secret>
 TARGET_IP: hblink.freestar.network
 TARGET_PORT: 62036
 USE_ACL: True
 SUB_ACL: DENY:1
-TGID_ACL: PERMIT:116,320,321,2350,23426,31665,67498
+TGID_ACL: PERMIT:83,116,320,321,2350,23426,31665,67498
 RELAX_CHECKS: True
 ENHANCED_OBP: False
 PROTO_VER: 1
 ```
 
-Restart the SystemX / RYSEN container after editing. Global `TGID_TS1_ACL` on OpenBridge is TS1 on the wire; the PERMIT list above is the real filter.
+Restart the SystemX / RYSEN container after editing. OpenBridge on the wire is TS1; the PERMIT list is the filter. Local hotspot delivery on this edge is TS2 (`talkgroup_slots` above).
+
+`preserve_source_peer` must be **false** for RYSEN: HBlink4 then stamps `network_id` (23550) as the OBP peer ID. If it is true, the hotspot repeater ID goes on the wire and Scotland discards the packet (`NETWORK_ID … Does not match sent Peer ID`). Scotland’s `NETWORK_ID` on this stanza must be the same 23550.
 
 ## Companion programs (not installed)
 
