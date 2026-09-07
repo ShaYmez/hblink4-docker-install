@@ -1,4 +1,5 @@
-# HBlink4 Docker Installer
+# HBlink4 Docker Installer (WIP)
+** Not Ready For Release Yet **
 
 Debian 11 / 12 / 13 and Ubuntu 22.04 / 24.04 LTS.
 
