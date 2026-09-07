@@ -28,6 +28,18 @@ services:
       - /etc/hblink4/config/config.json:/opt/HBlink4/config/config.json:ro
       - /etc/hblink4/dashboard/data:/opt/HBlink4/dashboard/data
     command: ["python", "-u", "dashboard/server.py"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   hblink4:
     container_name: hblink4
@@ -41,7 +53,8 @@ services:
     network_mode: host
     working_dir: /opt/HBlink4
     depends_on:
-      - hblink4-dash
+      hblink4-dash:
+        condition: service_healthy
     volumes:
       - /etc/hblink4/config/config.json:/opt/HBlink4/config/config.json:ro
       - /var/log/hblink4:/opt/HBlink4/logs

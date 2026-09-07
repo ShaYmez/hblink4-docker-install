@@ -13,7 +13,10 @@ if [ -f /usr/local/lib/hblink4/common.sh ]; then
 	# shellcheck source=/usr/local/lib/hblink4/common.sh
 	. /usr/local/lib/hblink4/common.sh
 else
-	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+	if [ ! -f "${_ROOT}/lib/common.sh" ]; then
+		_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	fi
 	# shellcheck source=../../lib/common.sh
 	. "${_ROOT}/lib/common.sh"
 fi

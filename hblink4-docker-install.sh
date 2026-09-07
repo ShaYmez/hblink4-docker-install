@@ -146,20 +146,7 @@ install_docker_and_dependencies() {
 	fi
 
 	note "Set userland-proxy to false and cap Docker json logs..."
-	if [ -f "${DIRDIR}/files/docker-daemon.json" ]; then
-		cp -f "${DIRDIR}/files/docker-daemon.json" /etc/docker/daemon.json
-	else
-		cat > /etc/docker/daemon.json << 'EOF'
-{
-  "userland-proxy": false,
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  }
-}
-EOF
-	fi
+	merge_docker_daemon_json
 	systemctl restart docker
 	sleep 2
 	ok "Docker Engine + Compose v2 ready"

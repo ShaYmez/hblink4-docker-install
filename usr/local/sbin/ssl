@@ -96,7 +96,7 @@ find_vhost_src() {
 }
 
 render_vhost() {
-	sed "s/__FQDN__/${FQDN}/g" "$1"
+	sed "s|__FQDN__|${FQDN}|g" "$1"
 }
 
 find_python() {

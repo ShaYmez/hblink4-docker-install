@@ -139,7 +139,7 @@ These are **separate daemons** by N0MJS. They are not plugins inside HBlink4 and
 | ipsc2hbp | https://github.com/n0mjs710/ipsc2hbp | Same translator in Python 3.11+. Prefer ipsc2hbpc for production. |
 | cc2obp | https://github.com/n0mjs710/cc2obp | c-Bridge CC-CC ⇄ OpenBridge. Peer it to `openbridge_connections` in `config.json`. |
 
-OpenBridge to SystemX / HBlink3 is **not** a companion — see **OpenBridge to SystemX / HBlink3** above.
+OpenBridge to SystemX / HBlink3 is **not** a companion — see **Example OpenBridge to SystemX / Brandmiester / DMR+ / Other Networks** below.
 
 ## Uninstall
 

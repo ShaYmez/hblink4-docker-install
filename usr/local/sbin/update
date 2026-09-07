@@ -12,21 +12,47 @@
 if [ -f /usr/local/lib/hblink4/common.sh ]; then
 	. /usr/local/lib/hblink4/common.sh
 else
-	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+	if [ ! -f "${_ROOT}/lib/common.sh" ]; then
+		_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	fi
 	. "${_ROOT}/lib/common.sh"
 fi
 
 require_root
-clear
-print_banner
 
 INSTALLER_PATH="$(installer_path)"
-note "Updating installer from git: ${INSTALLER_PATH}"
+SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+REPO_UPDATE="${INSTALLER_PATH}/usr/local/sbin/update"
+
+if [ -f "$REPO_UPDATE" ]; then
+	REPO_UPDATE_ABS="$(readlink -f "$REPO_UPDATE" 2>/dev/null || echo "$REPO_UPDATE")"
+	if [ "$SELF" != "$REPO_UPDATE_ABS" ]; then
+		echo "Re-running update from installer tree..."
+		exec bash "$REPO_UPDATE_ABS" "$@"
+	fi
+fi
+
 if [ -d "${INSTALLER_PATH}/.git" ]; then
+	BEFORE_SUM=$(md5sum "$REPO_UPDATE" 2>/dev/null | awk '{print $1}')
 	git -C "$INSTALLER_PATH" pull --ff-only || warn "git pull of installer failed — continuing with local files"
+	AFTER_SUM=$(md5sum "$REPO_UPDATE" 2>/dev/null | awk '{print $1}')
+	if [ -n "$BEFORE_SUM" ] && [ -n "$AFTER_SUM" ] && [ "$BEFORE_SUM" != "$AFTER_SUM" ]; then
+		echo "Installer update script was updated — re-running..."
+		exec bash "$REPO_UPDATE" "$@"
+	fi
 else
 	warn "Installer path is not a git checkout: ${INSTALLER_PATH}"
 fi
+
+# Re-source after possible pull so the rest of this run uses the new library.
+if [ -f "${INSTALLER_PATH}/lib/common.sh" ]; then
+	HBLINK4_COMMON_LOADED=
+	. "${INSTALLER_PATH}/lib/common.sh"
+fi
+
+clear
+print_banner
 
 if [ -f "${INSTALLER_PATH}/usr/local/sbin/update" ]; then
 	find "${INSTALLER_PATH}/usr/local/sbin" -type f -exec sed -i 's/\r$//' {} \; 2>/dev/null || true

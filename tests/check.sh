@@ -73,6 +73,43 @@ else
 	bad "install_control_scripts missing ssl"
 fi
 
+if grep -q 'exec bash' usr/local/sbin/update && grep -q 'Installer update script was updated' usr/local/sbin/update; then
+	ok "update re-execs after git pull"
+else
+	bad "update does not re-exec after git pull"
+fi
+
+if grep -q 'systemctl restart docker' usr/local/sbin/flush; then
+	bad "flush restarts the Docker daemon (takes down every container)"
+else
+	ok "flush does not restart the Docker daemon"
+fi
+
+if grep -q 'route get' lib/common.sh; then
+	ok "host_ip uses routing-table source address"
+else
+	bad "host_ip still interface-name matching only"
+fi
+
+if grep -q 'Keep a working fallback pin' lib/common.sh \
+	&& grep -q 'PYTHON_IMAGE=' lib/common.sh; then
+	ok "install_compose_tree preserves PYTHON_IMAGE pin"
+else
+	bad "install_compose_tree Python pin preserve"
+fi
+
+MISSING_ROOT=""
+for s in usr/local/sbin/*; do
+	if ! grep -q 'dirname "$0")/../../..' "$s"; then
+		MISSING_ROOT="${MISSING_ROOT} $s"
+	fi
+done
+if [ -z "$MISSING_ROOT" ]; then
+	ok "sbin scripts resolve lib/common.sh from git tree (../../../)"
+else
+	bad "sbin scripts missing ../../../ common.sh fallback:$MISSING_ROOT"
+fi
+
 if grep -nE '^[[:space:]]*case[[:space:]]+"\$\(read_choice\)"' usr/local/sbin/menu usr/local/sbin/initial-setup; then
 	bad "read_choice used in command substitution (prompt swallowed, keys never match)"
 else
@@ -232,6 +269,27 @@ if grep -q 'ensure_config' lib/common.sh && grep -q 'config_sample.json' lib/com
 	ok "ensure_config downloads samples"
 else
 	bad "ensure_config / sample download"
+fi
+
+if grep -q 'service_healthy' docker-compose.yml \
+	&& grep -q 'urllib.request' docker-compose.yml; then
+	ok "dashboard healthcheck; engine waits until dash is healthy"
+else
+	bad "compose missing dashboard healthcheck / service_healthy"
+fi
+
+if grep -q 'docker-compose.yml.bak' lib/common.sh; then
+	ok "install_compose_tree backs up docker-compose.yml"
+else
+	bad "install_compose_tree does not backup compose"
+fi
+
+if grep -q 'merge_docker_daemon_json' hblink4-docker-install.sh \
+	&& grep -q 'userland-proxy' lib/common.sh \
+	&& ! grep -q 'cp -f "${DIRDIR}/files/docker-daemon.json"' hblink4-docker-install.sh; then
+	ok "installer merges docker daemon.json (no wholesale replace)"
+else
+	bad "installer still overwrites /etc/docker/daemon.json"
 fi
 
 if grep -q 'prune_docker_leftovers' lib/common.sh \

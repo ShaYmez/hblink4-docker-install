@@ -12,7 +12,10 @@
 if [ -f /usr/local/lib/hblink4/common.sh ]; then
 	. /usr/local/lib/hblink4/common.sh
 else
-	_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+	if [ ! -f "${_ROOT}/lib/common.sh" ]; then
+		_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+	fi
 	. "${_ROOT}/lib/common.sh"
 fi
 
@@ -25,10 +28,6 @@ docker compose down --remove-orphans 2>/dev/null || true
 
 note "Truncating ${HBLINK4_LOGDIR}..."
 truncate -s 0 "${HBLINK4_LOGDIR}"/*log 2>/dev/null || true
-
-note "Restarting docker..."
-systemctl restart docker
-sleep 2
 
 ensure_config || exit 1
 docker compose up -d

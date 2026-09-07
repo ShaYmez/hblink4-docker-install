@@ -7,6 +7,8 @@ All notable changes to the **HBlink4 Docker installer** (not upstream HBlink4) a
 - Optional HTTPS: `hblink4-ssl <fqdn> <email>` installs Apache + certbot on demand, terminates TLS on 443, proxies `/` and `/ws` to uvicorn on `127.0.0.1:8080`, then binds the dashboard to localhost. HTTP on 80 redirects to HTTPS. `--dry-run` supported. Menu: Configuration → Enable HTTPS.
 - Fix `hblink4-menu` / `hblink4-initial-setup`: `$(read_choice)` captured the `Select:` prompt, so typed numbers never matched.
 - Align banner, status, menus, footer, and installer section rules to one 65-column light box.
+- Bug pass: `hblink4-update` re-execs after git pull (same as upgrade); `.env` Python pin is kept across compose-tree copies; `host_ip` uses the routing table; flush no longer restarts the Docker daemon; menu reboot/shutdown/re-install require `yes`.
+- Production hardening: dashboard HTTP healthcheck so the engine waits for `service_healthy`; backup `docker-compose.yml` before update overwrite; merge `userland-proxy` into `/etc/docker/daemon.json` instead of replacing the file.
 
 ## 0.1.0 — 2026-09-06
 

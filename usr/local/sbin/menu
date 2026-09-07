@@ -175,16 +175,28 @@ system_menu() {
 		case "$MENU_CHOICE" in
 			1) sudo /usr/local/sbin/hblink4-uninstall ;;
 			2)
-				INSTALLER_PATH="$(installer_path)"
-				if [ -f "${INSTALLER_PATH}/hblink4-docker-install.sh" ]; then
-					sudo "${INSTALLER_PATH}/hblink4-docker-install.sh"
-				else
-					err "Installer not found at ${INSTALLER_PATH}"
+				if ! confirm_yes "  Re-run the installer? This is destructive. (yes/no): "; then
 					pause
+				else
+					INSTALLER_PATH="$(installer_path)"
+					if [ -f "${INSTALLER_PATH}/hblink4-docker-install.sh" ]; then
+						sudo "${INSTALLER_PATH}/hblink4-docker-install.sh"
+					else
+						err "Installer not found at ${INSTALLER_PATH}"
+						pause
+					fi
 				fi
 				;;
-			3) sudo reboot ;;
-			4) sudo shutdown now ;;
+			3)
+				if confirm_yes "  Reboot this server now? (yes/no): "; then
+					sudo reboot
+				fi
+				;;
+			4)
+				if confirm_yes "  Shut down this server now? (yes/no): "; then
+					sudo shutdown now
+				fi
+				;;
 			0|b|q|"") return ;;
 		esac
 	done

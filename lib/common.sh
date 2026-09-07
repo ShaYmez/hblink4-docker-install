@@ -76,7 +76,14 @@ require_root() {
 }
 
 host_ip() {
-	ip -4 a 2>/dev/null | awk '/inet / && /eth0|ens|enp|eno/ {split($2,a,"/"); print a[1]; exit}'
+	local ip
+	# Routing-table source address — works for ens/enp/venet/vmbr/wlan, not just eth0.
+	ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i <= NF; i++) if ($i == "src") { print $(i + 1); exit }}')"
+	if [ -n "$ip" ]; then
+		printf '%s\n' "$ip"
+		return
+	fi
+	ip -4 a 2>/dev/null | awk '/inet / && $2 !~ /^127\./ { split($2, a, "/"); print a[1]; exit }'
 }
 
 container_running() {
@@ -311,6 +318,9 @@ install_compose_tree() {
 	local src="$1"
 	mkdir -p "${HBDIR}/docker/hblink4" "${HBDIR}/docker/dashboard" "${HBDIR}/lib" "${HBDIR}/apache"
 	sed -i 's/\r$//' "${src}/docker-compose.yml" 2>/dev/null || true
+	if [ -f "${HBDIR}/docker-compose.yml" ]; then
+		cp -f "${HBDIR}/docker-compose.yml" "${HBDIR}/docker-compose.yml.bak"
+	fi
 	cp -f "${src}/docker-compose.yml" "${HBDIR}/docker-compose.yml"
 	cp -f "${src}/docker/hblink4/Dockerfile" "${HBDIR}/docker/hblink4/Dockerfile"
 	cp -f "${src}/docker/dashboard/Dockerfile" "${HBDIR}/docker/dashboard/Dockerfile"
@@ -324,7 +334,12 @@ install_compose_tree() {
 	if [ -f "${src}/lib/common.sh" ]; then
 		cp -f "${src}/lib/common.sh" "${HBDIR}/lib/common.sh"
 	fi
-	printf 'PYTHON_IMAGE=%s\n' "${PYTHON_IMAGE:-$PYTHON_IMAGE_DEFAULT}" > "${HBDIR}/.env"
+	# Keep a working fallback pin (e.g. 3.13) across update/upgrade.
+	if [ -n "${PYTHON_IMAGE:-}" ]; then
+		printf 'PYTHON_IMAGE=%s\n' "$PYTHON_IMAGE" > "${HBDIR}/.env"
+	elif [ ! -f "${HBDIR}/.env" ] || ! grep -q '^PYTHON_IMAGE=' "${HBDIR}/.env"; then
+		printf 'PYTHON_IMAGE=%s\n' "$PYTHON_IMAGE_DEFAULT" > "${HBDIR}/.env"
+	fi
 	chmod 644 "${HBDIR}/docker-compose.yml" "${HBDIR}/.env"
 }
 
@@ -350,15 +365,26 @@ build_images() {
 	( cd "$HBDIR" && docker compose build "${extra[@]}" )
 }
 
-# If 3.14 dmr_utils3/bitarray fails, retry images on 3.13
+# If 3.14 dmr_utils3/bitarray fails, retry images on 3.13.
+# Prefer an existing /etc/hblink4/.env pin so update does not retry a known-bad 3.14 first.
 build_images_with_fallback() {
-	local extra=()
+	local extra=() first=""
 	[ "${1:-}" = "--no-cache" ] && extra+=(--no-cache --pull)
 	ensure_config || return 1
-	if ( cd "$HBDIR" && PYTHON_IMAGE="${PYTHON_IMAGE:-$PYTHON_IMAGE_DEFAULT}" docker compose build "${extra[@]}" ); then
+	if [ -n "${PYTHON_IMAGE:-}" ]; then
+		first="$PYTHON_IMAGE"
+	elif [ -f "${HBDIR}/.env" ]; then
+		first="$(awk -F= '/^PYTHON_IMAGE=/ { print $2; exit }' "${HBDIR}/.env")"
+	fi
+	first="${first:-$PYTHON_IMAGE_DEFAULT}"
+	if ( cd "$HBDIR" && PYTHON_IMAGE="$first" docker compose build "${extra[@]}" ); then
+		printf 'PYTHON_IMAGE=%s\n' "$first" > "${HBDIR}/.env"
 		return 0
 	fi
-	warn "Build on ${PYTHON_IMAGE:-$PYTHON_IMAGE_DEFAULT} failed — retrying ${PYTHON_IMAGE_FALLBACK} (dmr_utils3 wheel fallback)"
+	if [ "$first" = "$PYTHON_IMAGE_FALLBACK" ]; then
+		return 1
+	fi
+	warn "Build on ${first} failed — retrying ${PYTHON_IMAGE_FALLBACK} (dmr_utils3 wheel fallback)"
 	printf 'PYTHON_IMAGE=%s\n' "$PYTHON_IMAGE_FALLBACK" > "${HBDIR}/.env"
 	( cd "$HBDIR" && PYTHON_IMAGE="$PYTHON_IMAGE_FALLBACK" docker compose build "${extra[@]}" )
 }
@@ -375,6 +401,31 @@ set_permissions() {
 	chmod 0755 "$HBDIR" "$HBLINK4_LOGDIR" "${HBDIR}/dashboard/data" 2>/dev/null || true
 	chown -R "${RADIO_UID}" "$HBDIR" "$HBLINK4_LOGDIR" 2>/dev/null || true
 	chmod 644 "${HBDIR}/config/config.json" "${HBDIR}/dashboard/config.json" "${HBDIR}/docker-compose.yml" 2>/dev/null || true
+}
+
+# Merge userland-proxy + log caps into /etc/docker/daemon.json. Never replace a
+# pre-existing file wholesale (metrics plugins, registry mirrors, etc.).
+merge_docker_daemon_json() {
+	local dest="/etc/docker/daemon.json"
+	mkdir -p /etc/docker
+	python3 - "$dest" << 'PY'
+import json, pathlib, sys
+dest = pathlib.Path(sys.argv[1])
+data = {}
+if dest.exists():
+    raw = dest.read_text(encoding="utf-8").strip()
+    if raw:
+        data = json.loads(raw)
+    dest.replace(dest.with_name(dest.name + ".bak-hblink4"))
+data["userland-proxy"] = False
+if "log-driver" not in data:
+    data["log-driver"] = "json-file"
+opts = data.setdefault("log-opts", {})
+if isinstance(opts, dict):
+    opts.setdefault("max-size", "10m")
+    opts.setdefault("max-file", "3")
+dest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
 }
 
 install_control_scripts() {
