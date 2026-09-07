@@ -128,19 +128,40 @@ OBP        per openbridge_connections local_port in config.json
 ssh        22/tcp
 ```
 
-## OpenBridge to SystemX / HBlink3
+## Companion programs (not installed)
 
-OpenBridge is **built into** HBlink4 (`openbridge_connections` in `/etc/hblink4/config/config.json`). No extra container. Typical layout is this box as the **edge** (repeaters/hotspots on 62031) and a SystemX / RYSEN / HBlink3 box as the **core**. Cortney’s docs: [OpenBridge Trunks](https://github.com/n0mjs710/HBlink4/blob/main/docs/openbridge.md).
+These are **separate daemons** by N0MJS. They are not plugins inside HBlink4 and this installer does not build or start them. With host networking they can reach `127.0.0.1:62031` from the same machine.
 
-**SystemX does not use `rules.py` for OBP.** Traffic is allowed or dropped by the OBP stanza ACL. Set `TGID_ACL` to `PERMIT:` with the talkgroups you want on that trunk. Do not add conference-bridge rules for the OBP system.
+| Program | Repo | How it talks to HBlink4 |
+|---------|------|-------------------------|
+| dmr-talkback | https://github.com/n0mjs710/dmr-talkback | Logs in as an HBP repeater (voice test / echo). Needs an access-control entry; subscribes with `Options=`. |
+| ipsc2hbpc | https://github.com/n0mjs710/ipsc2hbpc | Motorola IPSC ⇄ HBP (C, preferred). Looks like a repeater to HBlink4. |
+| ipsc2hbp | https://github.com/n0mjs710/ipsc2hbp | Same translator in Python 3.11+. Prefer ipsc2hbpc for production. |
+| cc2obp | https://github.com/n0mjs710/cc2obp | c-Bridge CC-CC ⇄ OpenBridge. Peer it to `openbridge_connections` in `config.json`. |
 
-**HBlink4 cannot “send everything”.** The trunk is fail-closed: only TGIDs listed in `talkgroup_slots` move, in either direction. Put the same set on both sides. Also add those TGIDs to `repeater_configurations.default` slot lists if local radios should key them.
+OpenBridge to SystemX / HBlink3 is **not** a companion — see **OpenBridge to SystemX / HBlink3** above.
 
-OpenBridge on the wire is always TS1. `talkgroup_slots` is the **local** slot HBlink4 uses to deliver that TG to hotspots/repeaters. This edge is hotspot-style, so those TGs are mapped to **TS2**. If they stay on TS1, a simplex hotspot hears nothing.
+## Uninstall
 
-Worked example (this installer’s test edge `hblink.freestar.network` ⇄ SystemX Scotland `scotland.cq-uk.uk`). Classic HMAC OBP (`PROTO_VER: 1`, `ENHANCED_OBP: False`) on UDP **62036**. Shared passphrase.
+```sh
+hblink4-uninstall
+```
 
-Talkgroups on this trunk:
+Backs up `/etc/hblink4` under `/root/hblink4-backup-<timestamp>`. Docker, Apache, certbot, and Let's Encrypt certificates stay installed.
+
+**A litle about using OBP to connect to the network..**
+## Example OpenBridge to SystemX / Brandmiester / DMR+ / Other Networks
+
+OpenBridge is **built into** HBlink4 (`openbridge_connections` in `/etc/hblink4/config/config.json`). No extra container. Typical layout is this box as the **endpoint** (repeaters/hotspots on 62031) and a SystemX / BM / DMR+ network as the **core**. Cortney’s docs: [OpenBridge Trunks](https://github.com/n0mjs710/HBlink4/blob/main/docs/openbridge.md).
+
+**SystemX / FreeDMR style boxes does not use `rules.py` for OBP.** Traffic is allowed or dropped by the OBP stanza ACL. Set `TGID_ACL` to `PERMIT:` with the talkgroups you want on that trunk. Do not add conference-bridge rules for the OBP system.
+
+**HBlink4 cannot “send everything”.** The trunk is fail-closed: only TGIDs listed in `talkgroup_slots` move, in either direction. The same set of Talkgroups must exist on both sides of the OpenBridge. Also add those TGIDs to `repeater_configurations.default` slot lists if local radios should key them.
+
+**OBP Protocol version 1! `PROTO_VER: 1` for SystemX / FreeDMR**
+Worked example (this installer’s test edge `hblink.freestar.network` ⇄ SystemX Scotland `scotland.cq-uk.uk`). Classic HMAC OBP (`PROTO_VER: 1`, `ENHANCED_OBP: False`) on UDP **62036**. Shared passphrase = Successful trunk end to end.
+
+Example Talkgroups on this trunk:
 
 | TGID | Name |
 |------|------|
@@ -149,7 +170,7 @@ Talkgroups on this trunk:
 | 83 | UK Chat 4 |
 | 116 | UK TGIF |
 | 320 | QuadNet |
-| 321 | QNet Tech |
+| 321 | QuadNet Tech Chat |
 | 31665 | TGIF Main |
 | 67498 | Netaholics |
 
@@ -202,30 +223,9 @@ ENHANCED_OBP: False
 PROTO_VER: 1
 ```
 
-Restart the SystemX / RYSEN container after editing. OpenBridge on the wire is TS1; the PERMIT list is the filter. Local hotspot delivery on this edge is TS2 (`talkgroup_slots` above).
+Restart the SystemX / FreeDMR container after editing. OpenBridge on the wire is TS1; the PERMIT list is the filter. Local hotspot delivery on this edge is TS2 (`talkgroup_slots` above).
 
-`preserve_source_peer` must be **false** for RYSEN: HBlink4 then stamps `network_id` (23550) as the OBP peer ID. If it is true, the hotspot repeater ID goes on the wire and Scotland discards the packet (`NETWORK_ID … Does not match sent Peer ID`). Scotland’s `NETWORK_ID` on this stanza must be the same 23550.
-
-## Companion programs (not installed)
-
-These are **separate daemons** by N0MJS. They are not plugins inside HBlink4 and this installer does not build or start them. With host networking they can reach `127.0.0.1:62031` from the same machine.
-
-| Program | Repo | How it talks to HBlink4 |
-|---------|------|-------------------------|
-| dmr-talkback | https://github.com/n0mjs710/dmr-talkback | Logs in as an HBP repeater (voice test / echo). Needs an access-control entry; subscribes with `Options=`. |
-| ipsc2hbpc | https://github.com/n0mjs710/ipsc2hbpc | Motorola IPSC ⇄ HBP (C, preferred). Looks like a repeater to HBlink4. |
-| ipsc2hbp | https://github.com/n0mjs710/ipsc2hbp | Same translator in Python 3.11+. Prefer ipsc2hbpc for production. |
-| cc2obp | https://github.com/n0mjs710/cc2obp | c-Bridge CC-CC ⇄ OpenBridge. Peer it to `openbridge_connections` in `config.json`. |
-
-OpenBridge to SystemX / HBlink3 is **not** a companion — see **OpenBridge to SystemX / HBlink3** above.
-
-## Uninstall
-
-```sh
-hblink4-uninstall
-```
-
-Backs up `/etc/hblink4` under `/root/hblink4-backup-<timestamp>`. Docker, Apache, certbot, and Let's Encrypt certificates stay installed.
+`preserve_source_peer` must be **false** for SystemX / FreeDMR: HBlink4 then stamps `network_id` (23550) as the OBP peer ID. If it is true, the hotspot repeater ID goes on the wire and SystemX will discard the packet (`NETWORK_ID … Does not match sent Peer ID`). So SystemX / FreeDMR OBP `NETWORK_ID` on this stanza must be the same Network ID e.g 23550.
 
 ## License and credits
 
@@ -234,4 +234,4 @@ Backs up `/etc/hblink4` under `/root/hblink4-backup-<timestamp>`. Docker, Apache
 
 This project installs and containers HBlink4. Give it a try!! Provided as-is, with **no warranty** and **no liability** for the install or what you run afterwards.
 
-More: https://freestar.network/development and https://github.com/ShaYmez/
+More: https://github.com/n0mjs/ and https://github.com/ShaYmez/
