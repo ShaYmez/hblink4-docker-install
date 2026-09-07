@@ -137,7 +137,7 @@ These are **separate daemons** by N0MJS. They are not plugins inside HBlink4 and
 | ipsc2hbp | https://github.com/n0mjs710/ipsc2hbp | Same translator in Python 3.11+. Prefer ipsc2hbpc for production. |
 | cc2obp | https://github.com/n0mjs710/cc2obp | c-Bridge CC-CC ⇄ OpenBridge. Peer it to `openbridge_connections` in `config.json`. |
 
-OpenBridge to SystemX / HBlink3 is **not** a companion — see **Example OpenBridge to SystemX / Brandmeister / DMR+ / Other Networks** below.
+OpenBridge to SystemX / HBlink3 is **not** a companion — see **Example OpenBridge to SystemX / BrandMeister / DMR+ / Other Networks** below.
 
 ## Uninstall
 
@@ -149,7 +149,7 @@ Backs up `/etc/hblink4` under `/root/hblink4-backup-<timestamp>`. Docker, Apache
 
 A little about using OBP to connect to the network:
 
-## Example OpenBridge to SystemX / Brandmeister / DMR+ / Other Networks
+## Example OpenBridge to SystemX / BrandMeister / DMR+ / Other Networks
 
 OpenBridge is **built into** HBlink4 (`openbridge_connections` in `/etc/hblink4/config/config.json`). No extra container. Typical layout is this box as the **endpoint** (repeaters/hotspots on 62031) and a SystemX / BM / DMR+ network as the **core**. Cortney’s docs: [OpenBridge Trunks](https://github.com/n0mjs710/HBlink4/blob/main/docs/openbridge.md).
 

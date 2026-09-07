@@ -6,6 +6,7 @@ All notable changes to the **HBlink4 Docker installer** (not upstream HBlink4) a
 
 - First tagged release. Dedicated Debian/Ubuntu box: engine + dashboard, host networking, optional Let's Encrypt HTTPS, OpenBridge documented for SystemX / FreeDMR.
 - Update re-execs after git pull; Python image pin and `docker-compose.yml` survive upgrades; dashboard healthcheck so the engine starts only when the dash is up.
+- `hblink4-ssl` reuses an existing Let's Encrypt cert on reinstall without calling `certbot install` (that prompt fails non-interactively).
 
 ## 0.2.0 — 2026-09-06
 

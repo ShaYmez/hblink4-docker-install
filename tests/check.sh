@@ -55,6 +55,13 @@ else
 	bad "installer does not call install_control_scripts"
 fi
 
+if grep -q 'Existing certificate found' usr/local/sbin/ssl \
+	&& ! grep -q 'certbot install --apache' usr/local/sbin/ssl; then
+	ok "ssl reuses existing LE cert without certbot install"
+else
+	bad "ssl still calls certbot install on existing cert (non-interactive prompt)"
+fi
+
 if grep -q 'hblink4-ssl' usr/local/sbin/uninstall; then
 	ok "uninstall removes hblink4-ssl"
 else

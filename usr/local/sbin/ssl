@@ -237,8 +237,7 @@ if [ ! -d "/etc/letsencrypt/live/${FQDN}" ]; then
 	note "Requesting Let's Encrypt certificate for ${FQDN}..."
 	certbot --apache -d "$FQDN" --non-interactive --agree-tos -m "$EMAIL" --redirect
 else
-	note "Existing certificate found for ${FQDN}"
-	certbot install --apache -d "$FQDN" --non-interactive --reinstall --redirect || true
+	note "Existing certificate found for ${FQDN} — reusing /etc/letsencrypt/live/${FQDN}"
 fi
 
 if [ ! -d "/etc/letsencrypt/live/${FQDN}" ]; then
