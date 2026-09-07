@@ -2,6 +2,11 @@
 
 All notable changes to the **HBlink4 Docker installer** (not upstream HBlink4) are documented here.
 
+## 1.0.0 — 2026-09-07
+
+- First tagged release. Dedicated Debian/Ubuntu box: engine + dashboard, host networking, optional Let's Encrypt HTTPS, OpenBridge documented for SystemX / FreeDMR.
+- Update re-execs after git pull; Python image pin and `docker-compose.yml` survive upgrades; dashboard healthcheck so the engine starts only when the dash is up.
+
 ## 0.2.0 — 2026-09-06
 
 - Optional HTTPS: `hblink4-ssl <fqdn> <email>` installs Apache + certbot on demand, terminates TLS on 443, proxies `/` and `/ws` to uvicorn on `127.0.0.1:8080`, then binds the dashboard to localhost. HTTP on 80 redirects to HTTPS. `--dry-run` supported. Menu: Configuration → Enable HTTPS.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version 0.1.0 (06092026) hblink4-docker-installer
+# Version 1.0.0 (07092026) hblink4-docker-installer
 #
 ##################################################################################
 #   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>

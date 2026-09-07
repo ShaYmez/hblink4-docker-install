@@ -1,6 +1,6 @@
 #!/bin/bash
 # HBlink4 Docker control — upgrade (git pull both repos, --no-cache rebuild)
-# Version 0.1.0 (06092026)
+# Version 1.0.0 (07092026)
 #
 #   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
 #

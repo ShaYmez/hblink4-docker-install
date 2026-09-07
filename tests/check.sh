@@ -203,6 +203,30 @@ else
 	bad "VERSION file unexpected: ${VER}"
 fi
 
+STALE=$(grep -nE 'Version 0\.[12]\.0' hblink4-docker-install.sh lib/common.sh usr/local/sbin/* || true)
+if [ -z "$STALE" ]; then
+	ok "script headers are not stale 0.1.0/0.2.0"
+else
+	echo "$STALE"
+	bad "stale version headers"
+fi
+HDR_MISS=""
+for f in hblink4-docker-install.sh lib/common.sh usr/local/sbin/*; do
+	if ! grep -q "Version ${VER}" "$f"; then
+		HDR_MISS="${HDR_MISS} $f"
+	fi
+done
+if [ -z "$HDR_MISS" ]; then
+	ok "all scripts declare Version ${VER}"
+else
+	bad "scripts missing Version ${VER}:$HDR_MISS"
+fi
+if grep -q "v${VER}" README.md && grep -q "^## ${VER}" CHANGELOG.md; then
+	ok "README and CHANGELOG mention ${VER}"
+else
+	bad "README/CHANGELOG missing ${VER}"
+fi
+
 if grep -q '^version:' docker-compose.yml || grep -q '^version: ' docker-compose.yml; then
 	bad "compose has root version: tag (Compose V2 should omit it)"
 else

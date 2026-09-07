@@ -1,7 +1,6 @@
-# HBlink4 Docker Installer (WIP)
-** Not Ready For Release Yet **
+# HBlink4 Docker Installer
 
-Debian 11 / 12 / 13 and Ubuntu 22.04 / 24.04 LTS.
+**v1.0.0** — Debian 11 / 12 / 13 and Ubuntu 22.04 / 24.04 LTS.
 
 ![HBlink](img/HBlink.png "HBlink")
 
@@ -17,8 +16,7 @@ HBlink4 is **not** on Docker Hub. This installer clones N0MJS's git tree to `/op
 - **hblink4-dash** — official FastAPI dashboard, TCP **8080**
 - Event link: TCP **127.0.0.1:8765** (dashboard listens, engine dials). Official samples use a Unix socket; the installer patches both JSON files so split containers work.
 
-The dashboard is a **separate Compose service** so it can be swapped later (for HBMonv4 monitor development...) without touching the engine. (Are you up
-for the task?) There's nothing wrong with the built in dash... but people prod!
+The dashboard is a **separate Compose service** so it can be swapped later (HBMonv4 monitor development) without touching the engine. The built-in dashboard is fine for production.
 
 ![HBlink4 Dashboard](img/dashboard.png "HBlink4 Dashboard")
 
@@ -139,7 +137,7 @@ These are **separate daemons** by N0MJS. They are not plugins inside HBlink4 and
 | ipsc2hbp | https://github.com/n0mjs710/ipsc2hbp | Same translator in Python 3.11+. Prefer ipsc2hbpc for production. |
 | cc2obp | https://github.com/n0mjs710/cc2obp | c-Bridge CC-CC ⇄ OpenBridge. Peer it to `openbridge_connections` in `config.json`. |
 
-OpenBridge to SystemX / HBlink3 is **not** a companion — see **Example OpenBridge to SystemX / Brandmiester / DMR+ / Other Networks** below.
+OpenBridge to SystemX / HBlink3 is **not** a companion — see **Example OpenBridge to SystemX / Brandmeister / DMR+ / Other Networks** below.
 
 ## Uninstall
 
@@ -149,17 +147,18 @@ hblink4-uninstall
 
 Backs up `/etc/hblink4` under `/root/hblink4-backup-<timestamp>`. Docker, Apache, certbot, and Let's Encrypt certificates stay installed.
 
-**A litle about using OBP to connect to the network..**
-## Example OpenBridge to SystemX / Brandmiester / DMR+ / Other Networks
+A little about using OBP to connect to the network:
+
+## Example OpenBridge to SystemX / Brandmeister / DMR+ / Other Networks
 
 OpenBridge is **built into** HBlink4 (`openbridge_connections` in `/etc/hblink4/config/config.json`). No extra container. Typical layout is this box as the **endpoint** (repeaters/hotspots on 62031) and a SystemX / BM / DMR+ network as the **core**. Cortney’s docs: [OpenBridge Trunks](https://github.com/n0mjs710/HBlink4/blob/main/docs/openbridge.md).
 
-**SystemX / FreeDMR style boxes does not use `rules.py` for OBP.** Traffic is allowed or dropped by the OBP stanza ACL. Set `TGID_ACL` to `PERMIT:` with the talkgroups you want on that trunk. Do not add conference-bridge rules for the OBP system.
+**SystemX / FreeDMR style boxes do not use `rules.py` for OBP.** Traffic is allowed or dropped by the OBP stanza ACL. Set `TGID_ACL` to `PERMIT:` with the talkgroups you want on that trunk. Do not add conference-bridge rules for the OBP system.
 
 **HBlink4 cannot “send everything”.** The trunk is fail-closed: only TGIDs listed in `talkgroup_slots` move, in either direction. The same set of Talkgroups must exist on both sides of the OpenBridge. Also add those TGIDs to `repeater_configurations.default` slot lists if local radios should key them.
 
-**OBP Protocol version 1! `PROTO_VER: 1` for SystemX / FreeDMR**
-Worked example (this installer’s test edge `hblink.freestar.network` ⇄ SystemX Scotland `scotland.cq-uk.uk`). Classic HMAC OBP (`PROTO_VER: 1`, `ENHANCED_OBP: False`) on UDP **62036**. Shared passphrase = Successful trunk end to end.
+**OBP protocol version 1.** Use `PROTO_VER: 1` for SystemX / FreeDMR.
+Worked example (this installer’s test edge `hblink.freestar.network` ⇄ SystemX Scotland `scotland.cq-uk.uk`). Classic HMAC OBP (`PROTO_VER: 1`, `ENHANCED_OBP: False`) on UDP **62036**. The same shared passphrase on both ends is what brings the trunk up.
 
 Example Talkgroups on this trunk:
 
@@ -232,6 +231,6 @@ Restart the SystemX / FreeDMR container after editing. OpenBridge on the wire is
 - **HBlink4** and companions: Copyright (C) 2016-2026 Cortney T. Buffington, N0MJS `<n0mjs@me.com>` — GNU GPLv3
 - **This installer** (scripts, Compose, Dockerfiles, menu): Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez `<shane@freestar.network>` — GNU GPLv3
 
-This project installs and containers HBlink4. Give it a try!! Provided as-is, with **no warranty** and **no liability** for the install or what you run afterwards.
+This project installs and containers HBlink4. Provided as-is, with **no warranty** and **no liability** for the install or what you run afterwards.
 
-More: https://github.com/n0mjs/ and https://github.com/ShaYmez/
+More: https://github.com/n0mjs710/ and https://github.com/ShaYmez/

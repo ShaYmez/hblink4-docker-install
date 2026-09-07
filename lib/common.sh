@@ -1,6 +1,6 @@
 #!/bin/bash
 # HBlink4 Docker installer — shared library
-# Version 0.1.0 (06092026)
+# Version 1.0.0 (07092026)
 #
 #   Copyright (C) 2026 Shane Daley, M0VUB aka ShaYmez. <shane@freestar.network>
 #
@@ -121,7 +121,7 @@ print_star_rule() {
 
 print_banner() {
 	local ver tag sub pad
-	ver="$(cat "$(installer_path)/VERSION" 2>/dev/null || echo "0.1.0")"
+	ver="$(cat "$(installer_path)/VERSION" 2>/dev/null || echo "1.0.0")"
 	echo "${C_BCYAN}"
 	cat << 'EOF'
   ┌─────────────────────────────────────────────────────────────┐
